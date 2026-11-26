@@ -1,0 +1,8 @@
+build/
+build-*/
+deps/
+cmake-build-*/
+.DS_Store
+.vscode/
+.idea/
+*.xcodeproj/

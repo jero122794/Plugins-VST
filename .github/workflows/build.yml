@@ -1,0 +1,66 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: macOS (universal) – AU / VST3 / CLAP
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compilar
+        run: cmake --build build -j3
+
+      - name: Tests del DSP y del procesador
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Validar AU con auval (Logic usa este mismo validador)
+        run: |
+          killall -9 AudioComponentRegistrar || true
+          auval -a | grep -i optocomp || true
+          auval -strict -v aufx Opt2 Plvs
+
+      - name: Validar VST3 con pluginval
+        run: |
+          curl -sSL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_macOS.zip
+          unzip -q pluginval.zip
+          ./pluginval.app/Contents/MacOS/pluginval --strictness-level 10 --validate-in-process \
+            build/plugins/OptoComp/OptoComp_artefacts/Release/VST3/OptoComp.vst3
+
+      - name: Empaquetar
+        run: |
+          mkdir -p dist
+          cd build/plugins/OptoComp/OptoComp_artefacts/Release
+          ditto -c -k --keepParent AU/OptoComp.component   "$GITHUB_WORKSPACE/dist/OptoComp-AU-macOS.zip"
+          ditto -c -k --keepParent VST3/OptoComp.vst3      "$GITHUB_WORKSPACE/dist/OptoComp-VST3-macOS.zip"
+          ditto -c -k --keepParent CLAP/OptoComp.clap      "$GITHUB_WORKSPACE/dist/OptoComp-CLAP-macOS.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OptoComp-macOS
+          path: dist/*.zip
+
+  linux-tests:
+    name: Linux – tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencias
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build xvfb libasound2-dev libfreetype-dev libfontconfig1-dev \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libgl1-mesa-dev libxcomposite-dev
+      - name: Configurar y compilar
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j4
+      - name: Tests
+        run: xvfb-run -a ctest --test-dir build --output-on-failure

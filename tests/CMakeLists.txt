@@ -1,0 +1,8 @@
+add_executable(dsp_tests test_opto.cpp)
+target_link_libraries(dsp_tests PRIVATE dspcore)
+if(MSVC)
+    target_compile_options(dsp_tests PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(dsp_tests PRIVATE -Wall -Wextra)
+endif()
+add_test(NAME dsp_tests COMMAND dsp_tests)
