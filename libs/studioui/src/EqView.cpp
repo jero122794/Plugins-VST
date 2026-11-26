@@ -171,7 +171,7 @@ juce::Path EqGraph::analyzerPath (const Analyzer& a, bool closed) const
 void EqGraph::paint (juce::Graphics& g)
 {
     g.setColour (Colours::graphBg);
-    g.fillRoundedRectangle (getLocalBounds().toFloat(), 6.0f);
+    g.fillRoundedRectangle (getLocalBounds().toFloat(), 3.0f);
 
     // --- Rejilla
     g.setFont (juce::FontOptions (10.0f));
@@ -205,10 +205,10 @@ void EqGraph::paint (juce::Graphics& g)
     // --- Analizador: post relleno con degradado, pre como línea tenue (para comparar antes/después)
     if (post.active)
     {
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff3d7fc4).withAlpha (0.55f), 0.0f, plot.getY() + plot.getHeight() * 0.25f,
-                                                 juce::Colour (0xff1d3a5c).withAlpha (0.08f), 0.0f, plot.getBottom(), false));
+        g.setGradientFill (juce::ColourGradient (Colours::ocean.withAlpha (0.50f), 0.0f, plot.getY() + plot.getHeight() * 0.25f,
+                                                 Colours::navy.withAlpha (0.10f), 0.0f, plot.getBottom(), false));
         g.fillPath (analyzerPath (post, true));
-        g.setColour (juce::Colour (0xff7fb8f0).withAlpha (0.6f));
+        g.setColour (Colours::sky.withAlpha (0.65f));
         g.strokePath (analyzerPath (post, false), juce::PathStrokeType (1.0f));
     }
     if (pre.active)
@@ -517,9 +517,9 @@ void BandPanel::paint (juce::Graphics& g)
     auto r = getLocalBounds().toFloat().reduced (1.0f);
     juce::DropShadow (juce::Colours::black.withAlpha (0.6f), 14, { 0, 4 }).drawForRectangle (g, r.toNearestInt());
     g.setColour (Colours::face.withAlpha (0.97f));
-    g.fillRoundedRectangle (r, 8.0f);
+    g.fillRoundedRectangle (r, 3.0f);
     g.setColour (Colours::band (band).withAlpha (0.8f));
-    g.drawRoundedRectangle (r, 8.0f, 1.5f);
+    g.drawRoundedRectangle (r, 3.0f, 1.5f);
 
     auto head = r.reduced (12.0f, 8.0f).removeFromTop (26.0f);
     drawFilterIcon (g, head.removeFromLeft (34.0f).reduced (0.0f, 3.0f), core.readBand (band), Colours::band (band));
@@ -629,7 +629,7 @@ void BandStrip::paint (juce::Graphics& g)
         const auto col = Colours::band (b);
         auto r = cellBounds (b).toFloat();
         g.setColour (b == selected ? Colours::hairline : Colours::face);
-        g.fillRoundedRectangle (r, 6.0f);
+        g.fillRoundedRectangle (r, 3.0f);
         g.setColour (p.enabled ? col : Colours::hairline);
         g.fillRoundedRectangle (r.withHeight (3.0f), 1.5f);
 

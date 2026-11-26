@@ -22,7 +22,7 @@ void ReductionMeter::paint (juce::Graphics& g)
 
     // Escala hacia abajo: 0 dB arriba (como los medidores de GR de hardware)
     const float frac = juce::jlimit (0.0f, 1.0f, shown / range);
-    g.setColour (Colours::accent);
+    g.setColour (Colours::coral);   // la reducción de ganancia siempre en coral
     g.fillRoundedRectangle (bar.withHeight (bar.getHeight() * frac), 3.0f);
     const float holdY = bar.getY() + bar.getHeight() * juce::jlimit (0.0f, 1.0f, peakHold / range);
     g.setColour (Colours::text.withAlpha (0.7f));
@@ -44,7 +44,7 @@ namespace
     void graphBackground (juce::Graphics& g, juce::Rectangle<float> r)
     {
         g.setColour (Colours::graphBg);
-        g.fillRoundedRectangle (r, 6.0f);
+        g.fillRoundedRectangle (r, 3.0f);
     }
     float toDb (float lin) { return juce::Decibels::gainToDecibels (lin, -120.0f); }
 }
@@ -109,13 +109,13 @@ void HistoryView::paint (juce::Graphics& g)
         }
         grFill.lineTo (r.getRight(), r.getY());
         grFill.closeSubPath();
-        g.setColour (juce::Colour (0xffff8a5c).withAlpha (0.55f));
+        g.setColour (Colours::coral.withAlpha (0.55f));
         g.fillPath (grFill);
         const auto label = "GR " + juce::String (gr[(size_t) ((pos + len - 1) % len)], 1) + utf8 (" dB  ·  máx ") + juce::String (maxGr, 1);
         auto pill = juce::Rectangle<float> (150.0f, 18.0f).withPosition (r.getRight() - 154.0f, r.getBottom() - 22.0f);
         g.setColour (Colours::face.withAlpha (0.9f));
         g.fillRoundedRectangle (pill, 4.0f);
-        g.setColour (juce::Colour (0xffff8a5c));
+        g.setColour (Colours::coral);
         g.setFont (mono (11.0f));
         g.drawText (label, pill, juce::Justification::centred);
     }
@@ -157,7 +157,7 @@ void TransferCurveView::paint (juce::Graphics& g)
     // Techo (solo si el módulo tiene uno, p. ej. el clipper)
     if (ceiling)
     {
-        g.setColour (juce::Colour (0xffff6b6b).withAlpha (0.7f));
+        g.setColour (Colours::coral.withAlpha (0.7f));
         g.drawHorizontalLine ((int) yFor (ceiling()), r.getX(), r.getRight());
     }
 
@@ -245,7 +245,7 @@ void Goniometer::paint (juce::Graphics& g)
     g.setColour (Colours::face);
     g.fillRoundedRectangle (bar, 3.0f);
     const float cx = bar.getCentreX(), x = bar.getX() + bar.getWidth() * (juce::jlimit (-1.0f, 1.0f, correlation) + 1.0f) * 0.5f;
-    g.setColour (correlation < 0.0f ? juce::Colour (0xffff6b6b) : Colours::accent);
+    g.setColour (correlation < 0.0f ? Colours::coral : Colours::accent);
     g.fillRect (juce::Rectangle<float>::leftTopRightBottom (std::min (cx, x), bar.getY(), std::max (cx, x), bar.getBottom()));
     g.setColour (Colours::dim);
     g.setFont (juce::FontOptions (10.0f));
@@ -265,7 +265,7 @@ void LevelMeter::paint (juce::Graphics& g)
     constexpr float lo = -60.0f;
     auto yFor = [&] (float db) { return bar.getBottom() - bar.getHeight() * (juce::jlimit (lo, 0.0f, db) - lo) / -lo; };
     const float y = yFor (shown);
-    const auto col = shown > -1.0f ? juce::Colour (0xffff6b6b) : shown > -6.0f ? juce::Colour (0xffffc048) : Colours::accent;
+    const auto col = shown > -1.0f ? Colours::coral : shown > -6.0f ? Colours::sky : Colours::accent;
     g.setColour (col);
     g.fillRoundedRectangle (bar.withTop (y), 3.0f);
     g.setColour (Colours::text);

@@ -17,7 +17,7 @@ namespace
     {
         if (! std::isfinite (value)) return Colours::dim;
         const double d = std::fabs (value - target);
-        return d <= 1.0 ? juce::Colour (0xff69db7c) : d <= 3.0 ? juce::Colour (0xffffc048) : juce::Colour (0xffff6b6b);
+        return d <= 1.0 ? Colours::sky : d <= 3.0 ? Colours::mist : Colours::coral;
     }
 }
 
@@ -100,7 +100,7 @@ void MeterPanel::paint (juce::Graphics& g)
         g.drawText (items[i].label, cell.removeFromTop (14.0f), juce::Justification::centredLeft);
         // Rojo solo si al redondear a 0.1 dB supera -1 dBTP (el objetivo habitual de streaming)
         const bool overCeiling = juce::String (items[i].label) == "TRUE PEAK" && tp > -0.95;
-        g.setColour (overCeiling ? juce::Colour (0xffff6b6b) : Colours::text);
+        g.setColour (overCeiling ? Colours::coral : Colours::text);
         g.setFont (studioui::mono (17.0f));
         g.drawText (items[i].value, cell, juce::Justification::centredLeft);
     }
@@ -123,7 +123,7 @@ void MeterPanel::paint (juce::Graphics& g)
         if (change < -0.05)      txt << studioui::utf8 ("bajará tu máster ") << juce::String (-change, 1) << " dB";
         else if (change > 0.05)  txt << juce::String (change, 1) << " dB por debajo del objetivo";
         else                     txt << "en el objetivo";
-        g.setColour (change < -3.0 ? juce::Colour (0xffffc048) : Colours::text);
+        g.setColour (change < -3.0 ? Colours::coral : Colours::text);
         g.setFont (juce::FontOptions (12.0f));
         g.drawFittedText (txt, r.removeFromTop (32.0f).toNearestInt(), juce::Justification::centredLeft, 2);
     }
@@ -140,7 +140,7 @@ void MeterPanel::paint (juce::Graphics& g)
         g.fillRoundedRectangle (bar, 3.0f);
         const float c = juce::jlimit (-1.0f, 1.0f, src.correlation->load());
         const float cx = bar.getCentreX(), x = bar.getX() + bar.getWidth() * (c + 1.0f) * 0.5f;
-        g.setColour (c < 0.0f ? juce::Colour (0xffff6b6b) : Colours::accent);
+        g.setColour (c < 0.0f ? Colours::coral : Colours::accent);
         g.fillRect (juce::Rectangle<float>::leftTopRightBottom (std::min (cx, x), bar.getY(), std::max (cx, x), bar.getBottom()));
         g.setColour (Colours::hairline);
         g.drawVerticalLine ((int) cx, bar.getY(), bar.getBottom());
@@ -182,7 +182,7 @@ void MeterPanel::drawHistogram (juce::Graphics& g, juce::Rectangle<float> area)
     const int platformIdx = src.platform ? (int) src.platform->load() : 0;
     if (platformIdx > 0)
     {
-        g.setColour (juce::Colour (0xff69db7c));
+        g.setColour (Colours::sky);
         const float x = xFor (platformTarget (platformIdx));
         for (float y = plot.getY(); y < plot.getBottom(); y += 6.0f)
             g.drawVerticalLine ((int) x, y, std::min (y + 3.0f, plot.getBottom()));

@@ -13,21 +13,29 @@ inline juce::String utf8 (const char* s) { return juce::String::fromUTF8 (s); }
 
 namespace Colours
 {
-    inline const juce::Colour panel    { 0xff17191c };
-    inline const juce::Colour face     { 0xff23262b };
-    inline const juce::Colour graphBg  { 0xff111315 };
-    inline const juce::Colour grid     { 0xff262a30 };
-    inline const juce::Colour hairline { 0xff343941 };
-    inline const juce::Colour text     { 0xffe6e8eb };
-    inline const juce::Colour dim      { 0xff8b929c };
-    inline const juce::Colour accent   { 0xff5fb3ff };
+    // --- Paleta de marca (la del usuario)
+    inline const juce::Colour navy  { 0xff1b325f };   // #1B325F
+    inline const juce::Colour sky   { 0xff9cc4e4 };   // #9CC4E4
+    inline const juce::Colour mist  { 0xffe9f2f9 };   // #E9F2F9
+    inline const juce::Colour ocean { 0xff3a89c9 };   // #3A89C9
+    inline const juce::Colour coral { 0xfff26c4f };   // #F26C4F: solo para lo importante (GR, activo, avisos)
 
-    /** Paleta categórica para bandas: tonos separados, luminosidad similar. */
+    // --- Tokens derivados (variaciones de luminosidad del mismo marino, nunca grises neutros)
+    inline const juce::Colour panel    { 0xff13254a };   // fondo de la ventana, un paso más profundo que el marino
+    inline const juce::Colour face     = navy;           // tarjetas y paneles
+    inline const juce::Colour graphBg  { 0xff0e1d3a };   // gráficos y medidores (hundidos)
+    inline const juce::Colour grid     { 0xff1d3766 };
+    inline const juce::Colour hairline { 0xff2c4c80 };
+    inline const juce::Colour knob     { 0xff0f2142 };   // cuerpo de las perillas: oscuro sobre la tarjeta, como una perilla real
+    inline const juce::Colour text     = mist;
+    inline const juce::Colour dim      { 0xff8ba9c9 };   // sky apagado, para rótulos secundarios
+    inline const juce::Colour accent   = ocean;
+
+    /** Bandas del EQ: derivadas de la paleta (coral, cielo, océano y sus tintes), distinguibles entre sí. */
     inline juce::Colour band (int i)
     {
-        static const juce::Colour c[] = { juce::Colour (0xffff6b6b), juce::Colour (0xffffa94d), juce::Colour (0xffffd43b),
-                                          juce::Colour (0xff69db7c), juce::Colour (0xff38d9a9), juce::Colour (0xff4dabf7),
-                                          juce::Colour (0xff9775fa), juce::Colour (0xfff783ac) };
+        static const juce::Colour c[] = { juce::Colour (0xfff26c4f), juce::Colour (0xff9cc4e4), juce::Colour (0xff3a89c9), juce::Colour (0xfff7a58f),
+                                          juce::Colour (0xffe9f2f9), juce::Colour (0xff64a6dc), juce::Colour (0xffc85a43), juce::Colour (0xffbcd8ee) };
         return c[(size_t) (i % 8)];
     }
 }
@@ -57,6 +65,7 @@ public:
         setColour (TextButton::buttonColourId, Colours::face);
         setColour (TextButton::textColourOffId, Colours::dim);
         setColour (TextButton::textColourOnId, Colours::text);
+        setColour (TextButton::buttonOnColourId, Colours::ocean.withAlpha (0.55f));
     }
 
     /**
@@ -115,7 +124,7 @@ public:
         g.strokePath (val, juce::PathStrokeType (track, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         const float knobR = radius * 0.72f;
-        g.setColour (Colours::face);
+        g.setColour (Colours::knob);
         g.fillEllipse (centre.x - knobR, centre.y - knobR, 2 * knobR, 2 * knobR);
 
         juce::Path pointer;
