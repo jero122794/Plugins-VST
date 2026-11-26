@@ -23,6 +23,7 @@ jobs:
         plugins/MasterModules/MCImager_artefacts|MC Imager|Mim1
         plugins/MasterModules/MCClipper_artefacts|MC Clipper|Mcl1
         plugins/MasterModules/MCMeter_artefacts|MC Meter|Mmt1
+        plugins/Afina/Afina_artefacts|Afina|Afn1
     steps:
       - uses: actions/checkout@v5
 
@@ -87,7 +88,7 @@ jobs:
       - name: Configurar y compilar (solo tests)
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build -j4 --target dsp_tests eq_tests loudness_tests mastering_tests \
+          cmake --build build -j4 --target dsp_tests eq_tests loudness_tests mastering_tests pitch_tests Afina_ProcessorTests \
             OptoComp_ProcessorTests PrismaEQ_ProcessorTests MasterChain_ProcessorTests MasterModules_Gallery
       - name: Tests
         run: xvfb-run -a ctest --test-dir build --output-on-failure

@@ -8,7 +8,7 @@ Plugins de audio propios para uso personal. Formatos: **AU** (Logic), **VST3** y
 | **MC Limiter** · **MC BusComp** · **MC Saturator** · **MC Imager** · **MC Clipper** · **MC Meter** | Cada módulo de la cadena como plugin suelto (mismo código) |
 | **PrismaEQ** | EQ dinámico de 8 bandas con analizador (también es el EQ de MasterChain) |
 | **OptoComp** | Compresor óptico LA-2A (válvula) / LA-3A (estado sólido) |
-| Corrección de tono | Pendiente: último paso |
+| **Afina** | Corrección de afinación en tiempo real por escala (detección YIN + resíntesis PSOLA con conservación de formantes) |
 
 ## Compilar en macOS
 
@@ -67,6 +67,21 @@ Momentary, short-term, integrado, LRA, true peak, PLR, correlación, histograma 
 - La curva dibujada es exactamente la que se aplica al audio (test: error de 0,000 dB).
 - **Fase mínima / Fase lineal**. En fase lineal el EQ no desplaza la fase (ideal en mastering): un FIR de 16384 taps a 44,1/48 kHz (32768 a 88,2/96) diseñado en segundo plano a partir de la curva casi analógica, así que tampoco hay cramping. Error de magnitud medido: 0,006 dB entre 60 Hz y 20 kHz. Coste: ~176 ms de latencia (Logic y Reaper la compensan) y las bandas dinámicas actúan como estáticas. Mid y Side se respetan (se procesa en M/S con dos FIR); Left/Right se tratan como Stereo.
 
+## Afina: corrección de afinación
+
+| Control | Qué hace |
+|---|---|
+| Tonalidad / Escala | Notas permitidas (cromática, mayor, menores, dórica, pentatónicas, blues) |
+| Teclado | Clic en una nota de la escala para excluirla a mano |
+| Velocidad | 0 ms = corrección instantánea (efecto robótico); 20–60 ms = natural; >100 ms = muy sutil |
+| Cantidad | Qué parte de la desafinación se corrige (100 % = toda) |
+| Transponer | ±12 semitonos, conservando los formantes |
+| Rango de voz | Nota más grave a detectar: Soprano (~24 ms de latencia), Alto/Tenor (~46 ms), Voz grave (~55 ms) |
+
+Medido en los tests: detección con error < 0,5 cents; una nota cantada +39 cents se corrige a 0,1 cents; sin corrección la salida es la entrada retrasada (correlación 1,0000); al subir 3 semitonos el formante se mueve un 7 % (un remuestreo lo movería un 19 %); 0 errores de octava en 9831 estimaciones de una melodía con ataques.
+
+Notas: en estéreo se corrige la suma mono (la voz principal es mono). Los primeros ~25 ms de cada nota pasan sin corregir, para que el ataque no produzca saltos de octava.
+
 ## OptoComp: controles
 
 | Control | Qué hace |
@@ -95,6 +110,7 @@ ctest --test-dir build --output-on-failure
 | `mastering_tests` | Techo del limitador, dither, compresor de bus, saturación, imagen, entrada |
 | `eq_tests` | Curva dibujada = audio medido, pendientes, bandas dinámicas, M/S |
 | `dsp_tests` | Modelo óptico de OptoComp |
+| `pitch_tests` | Detección, corrección, escalas, velocidad, transparencia, formantes y ataques de Afina |
 | `*_ProcessorTests` | Cada plugin como lo usa un DAW: latencia, bypass, estado, bloques irregulares, A/B igualado |
 
 ## Estructura
