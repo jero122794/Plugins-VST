@@ -27,25 +27,30 @@ jobs:
           killall -9 AudioComponentRegistrar || true
           auval -a | grep -i optocomp || true
           auval -strict -v aufx Opt2 Plvs
+          auval -strict -v aufx Prq1 Plvs
 
       - name: Validar VST3 con pluginval
         run: |
           curl -sSL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_macOS.zip
           unzip -q pluginval.zip
-          ./pluginval.app/Contents/MacOS/pluginval --strictness-level 10 --validate-in-process \
-            build/plugins/OptoComp/OptoComp_artefacts/Release/VST3/OptoComp.vst3
+          for p in OptoComp PrismaEQ; do
+            ./pluginval.app/Contents/MacOS/pluginval --strictness-level 10 --validate-in-process \
+              build/plugins/$p/${p}_artefacts/Release/VST3/$p.vst3
+          done
 
       - name: Empaquetar
         run: |
           mkdir -p dist
-          cd build/plugins/OptoComp/OptoComp_artefacts/Release
-          ditto -c -k --keepParent AU/OptoComp.component   "$GITHUB_WORKSPACE/dist/OptoComp-AU-macOS.zip"
-          ditto -c -k --keepParent VST3/OptoComp.vst3      "$GITHUB_WORKSPACE/dist/OptoComp-VST3-macOS.zip"
-          ditto -c -k --keepParent CLAP/OptoComp.clap      "$GITHUB_WORKSPACE/dist/OptoComp-CLAP-macOS.zip"
+          for p in OptoComp PrismaEQ; do
+            d=build/plugins/$p/${p}_artefacts/Release
+            ditto -c -k --keepParent $d/AU/$p.component "dist/$p-AU-macOS.zip"
+            ditto -c -k --keepParent $d/VST3/$p.vst3    "dist/$p-VST3-macOS.zip"
+            ditto -c -k --keepParent $d/CLAP/$p.clap    "dist/$p-CLAP-macOS.zip"
+          done
 
       - uses: actions/upload-artifact@v5
         with:
-          name: OptoComp-macOS
+          name: Plugins-macOS
           path: dist/*.zip
 
   linux-tests:

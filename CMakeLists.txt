@@ -20,6 +20,10 @@ add_library(dspcore INTERFACE)
 target_include_directories(dspcore INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libs/dspcore/include)
 target_compile_features(dspcore INTERFACE cxx_std_17)
 
+# --- UI compartida (requiere JUCE) -------------------------------------------
+add_library(studioui INTERFACE)
+target_include_directories(studioui INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libs/studioui/include)
+
 # --- Tests ------------------------------------------------------------------
 if(PLUGINS_BUILD_TESTS)
     enable_testing()
@@ -30,4 +34,5 @@ endif()
 if(PLUGINS_BUILD_PLUGINS)
     include(cmake/Dependencies.cmake)
     add_subdirectory(plugins/OptoComp)
+    add_subdirectory(plugins/PrismaEQ)
 endif()

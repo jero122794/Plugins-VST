@@ -5,7 +5,7 @@ Plugins de audio propios para uso personal. Formatos: **AU** (Logic), **VST3** y
 | Plugin | Estado | Descripción |
 |---|---|---|
 | **OptoComp** | v0.1 – funcional | Compresor óptico con dos modelos: LA-2A (válvula) y LA-3A (estado sólido) |
-| EQ dinámico | pendiente | Paramétrico/dinámico, fase lineal, M/S |
+| **PrismaEQ** | v0.1 – funcional | EQ de 8 bandas dinámico, Stereo/Mid/Side/L/R, analizador pre/post, modo HQ 2x |
 | Corrección de tono | pendiente | Detección YIN + resíntesis PSOLA con preservación de formantes |
 
 ## Compilar en macOS
@@ -22,7 +22,7 @@ La primera vez se descargan JUCE y las extensiones CLAP (~5 min). Al terminar, l
 - **Logic**: si no aparece, reinicia Logic o ejecuta `killall -9 AudioComponentRegistrar` y vuelve a abrirlo.
 - **Reaper**: *Preferences → Plug-ins → VST/CLAP → Re-scan*.
 
-También puedes descargar los binarios ya compilados en la pestaña **Actions** del repositorio (artefacto `OptoComp-macOS`).
+También puedes descargar los binarios ya compilados en la pestaña **Actions** del repositorio (artefacto `Plugins-macOS`).
 
 ## Tests
 
@@ -43,6 +43,15 @@ plugins/OptoComp/ Wrapper JUCE (procesador + UI) y tests de integración
 tests/            Tests del DSP
 cmake/            Dependencias (JUCE 8, clap-juce-extensions)
 ```
+
+## PrismaEQ: uso
+
+- **Doble clic** en el gráfico: crea una banda (corte en los extremos, campana en el resto). Doble clic en un nodo: la apaga.
+- **Arrastrar** un nodo: frecuencia y ganancia. **Rueda del ratón** sobre un nodo: Q.
+- **Dyn Range** distinto de 0 convierte la banda en dinámica: por encima de **Threshold** la ganancia se desplaza hasta ese valor (negativo = la banda comprime, positivo = expande). La línea vertical del nodo muestra cuánto se está moviendo, y la curva discontinua es la estática.
+- **HQ**: procesa a 2x. A 44,1/48 kHz, las campanas por encima de ~10 kHz se estrechan cerca de Nyquist (cramping); HQ lo corrige a cambio de 3 muestras de latencia.
+- Lo que dibuja la curva es exactamente lo que se aplica al audio: hay un test que lo verifica (error de 0,000 dB).
+- Limitación de la v0.1: no hay modo de fase lineal.
 
 ## OptoComp: controles
 
