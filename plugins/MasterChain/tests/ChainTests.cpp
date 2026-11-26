@@ -198,11 +198,11 @@ static int snapshot (const char* path, const char* slotId)
             if (p.getSlot (s).moduleInfo.id == slotId) e->selectSlot (s);
 
     std::vector<float> l, r;
-    for (int sec = 0; sec < 20; ++sec)
+    for (int step = 0; step < 300; ++step)   // 0.1 s de audio por refresco de la UI: como en un DAW
     {
-        program (l, r, 48000, 0.25f + 0.1f * std::sin ((float) sec * 0.7f), (unsigned) sec);
+        program (l, r, 4800, 0.25f + 0.12f * std::sin ((float) step * 0.05f), (unsigned) step);
         run (p, l, r);
-        if (sec % 2 == 0) juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (34);
     }
     juce::MessageManager::getInstance()->runDispatchLoopUntil (200);
     auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.5f);

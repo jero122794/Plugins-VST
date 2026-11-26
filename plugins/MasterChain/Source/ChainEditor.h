@@ -16,6 +16,7 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseUp (const juce::MouseEvent&) override { onSelect (slot); }
 
 private:
     MasterChainProcessor& proc;
@@ -25,7 +26,6 @@ private:
     bool selected = false;
 
     juce::ToggleButton on;
-    juce::TextButton name;
     juce::ArrowButton up { "up", 0.75f, studioui::Colours::dim }, down { "down", 0.25f, studioui::Colours::dim };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> onAtt;
     juce::String meterText;

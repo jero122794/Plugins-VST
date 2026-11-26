@@ -7,11 +7,11 @@ using namespace studioui;
 ModuleRow::ModuleRow (MasterChainProcessor& p, std::function<void (int)> sel, std::function<void()> moved)
     : proc (p), onSelect (std::move (sel)), onMoved (std::move (moved))
 {
-    name.onClick = [this] { onSelect (slot); };
     up.onClick = [this] { proc.moveModule (position, -1); onMoved(); };
     down.onClick = [this] { proc.moveModule (position, +1); onMoved(); };
     on.setTooltip ("Activar / bypass (con latencia compensada)");
-    for (auto* c : std::initializer_list<juce::Component*> { &on, &name, &up, &down })
+    setMouseCursor (juce::MouseCursor::PointingHandCursor);
+    for (auto* c : std::initializer_list<juce::Component*> { &on, &up, &down })
         addAndMakeVisible (c);
 }
 
@@ -20,8 +20,6 @@ void ModuleRow::setPosition (int pos)
     position = pos;
     slot = proc.slotAt (pos);
     auto& s = proc.getSlot (slot);
-    name.setButtonText (s.moduleInfo.name);
-    name.setTooltip (s.moduleInfo.description);
     onAtt.reset();
     onAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, s.moduleInfo.prefix + "on", on);
     up.setVisible (proc.isReorderable (pos) && proc.isReorderable (pos - 1));
@@ -34,34 +32,54 @@ void ModuleRow::refresh()
     const float v = s.module->getMeterDb();
     const auto label = s.module->getMeterLabel();
     const juce::String t = label.isNotEmpty() && s.isOn() ? label + " " + juce::String (v, 1) : juce::String();
-    if (t != meterText) { meterText = t; repaint(); }
-    name.setColour (juce::TextButton::textColourOffId, s.isOn() ? Colours::text : Colours::dim);
+    if (t != meterText) { meterText = t; }
+    repaint();
 }
 
 void ModuleRow::paint (juce::Graphics& g)
 {
+    auto& s = proc.getSlot (slot);
+    const bool active = s.isOn();
+    auto r = getLocalBounds().toFloat().reduced (0.0f, 3.0f);
     g.setColour (selected ? Colours::hairline : Colours::face);
-    g.fillRoundedRectangle (getLocalBounds().toFloat().reduced (0.0f, 2.0f), 5.0f);
+    g.fillRoundedRectangle (r, 6.0f);
+    const auto colour = Colours::band (slot);
     if (selected)
     {
-        g.setColour (Colours::accent);
-        g.fillRoundedRectangle (0.0f, 2.0f, 3.0f, (float) getHeight() - 4.0f, 1.5f);
+        g.setColour (colour);
+        g.fillRoundedRectangle (r.withWidth (3.0f), 1.5f);
     }
-    g.setColour (Colours::dim);
-    g.setFont (juce::FontOptions (10.0f));
-    g.drawText (meterText, getLocalBounds().withTrimmedLeft (34).withTrimmedBottom (4), juce::Justification::bottomLeft);
+
+    // Punto de color del módulo (apagado = hueco)
+    const juce::Rectangle<float> dot (40.0f, r.getCentreY() - 5.0f, 10.0f, 10.0f);
+    g.setColour (active ? colour : Colours::dim.withAlpha (0.6f));
+    if (active) g.fillEllipse (dot); else g.drawEllipse (dot, 1.5f);
+
+    g.setColour (active ? Colours::text : Colours::dim);
+    g.setFont (juce::FontOptions (14.0f, juce::Font::bold));
+    auto textArea = r.withTrimmedLeft (60.0f).withTrimmedRight (34.0f);
+    g.drawText (s.moduleInfo.name, textArea.withTrimmedBottom (meterText.isNotEmpty() ? 14.0f : 0.0f), juce::Justification::centredLeft);
+    if (meterText.isNotEmpty())
+    {
+        g.setColour (juce::Colour (0xffff8a5c));
+        g.setFont (juce::FontOptions (10.5f));
+        g.drawText (meterText + " dB", textArea.withTrimmedTop (textArea.getHeight() - 22.0f), juce::Justification::centredLeft);
+    }
+    if (! active)
+    {
+        g.setColour (Colours::dim);
+        g.setFont (juce::FontOptions (9.5f, juce::Font::bold));
+        g.drawText ("BYPASS", textArea, juce::Justification::centredRight);
+    }
 }
 
 void ModuleRow::resized()
 {
-    auto r = getLocalBounds().reduced (4, 4);
-    on.setBounds (r.removeFromLeft (26));
-    auto arrows = r.removeFromRight (26);
-    up.setBounds (arrows.removeFromTop (arrows.getHeight() / 2).reduced (6, 4));
-    down.setBounds (arrows.reduced (6, 4));
-    name.setBounds (r.withTrimmedBottom (12));
-    name.setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    name.setColour (juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
+    auto r = getLocalBounds().reduced (6, 6);
+    on.setBounds (r.removeFromLeft (26).withSizeKeepingCentre (26, 26));
+    auto arrows = r.removeFromRight (24);
+    up.setBounds (arrows.removeFromTop (arrows.getHeight() / 2).reduced (5, 3));
+    down.setBounds (arrows.reduced (5, 3));
 }
 
 // ============================================================================
@@ -136,6 +154,18 @@ void MasterChainEditor::timerCallback()
 void MasterChainEditor::paint (juce::Graphics& g)
 {
     g.fillAll (Colours::panel);
+
+    // Flujo de señal: línea que une los módulos en orden de procesado
+    if (! rows.empty())
+    {
+        const float x = (float) rows.front()->getX() + 45.0f;
+        g.setColour (Colours::hairline);
+        g.drawLine (x, (float) rows.front()->getBounds().getCentreY(), x, (float) rows.back()->getBounds().getCentreY(), 2.0f);
+        auto label = rows.back()->getBounds().translated (0, rows.back()->getHeight() + 6).withHeight (16);
+        g.setColour (Colours::dim);
+        g.setFont (juce::FontOptions (10.5f));
+        g.drawText (studioui::utf8 ("Las flechas reordenan los módulos centrales"), label, juce::Justification::centredLeft);
+    }
     g.setColour (Colours::text);
     g.setFont (juce::FontOptions (19.0f, juce::Font::bold));
     g.drawText ("MASTER CHAIN", titleArea.removeFromLeft (180), juce::Justification::centredLeft);

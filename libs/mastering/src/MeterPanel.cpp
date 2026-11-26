@@ -57,7 +57,8 @@ void MeterPanel::resized()
     histButton.setBounds (bottom.removeFromLeft (100));
     bottom.removeFromLeft (6);
     historyButton.setBounds (bottom.removeFromLeft (90));
-    graphArea = r.removeFromBottom (juce::jmin (220, r.getHeight() / 2)).withTrimmedBottom (8);
+    // Los valores ocupan ~290 px; el gráfico se queda con todo lo demás
+    graphArea = r.withTrimmedTop (juce::jmin (296, r.getHeight() / 2)).withTrimmedBottom (8);
 }
 
 void MeterPanel::paint (juce::Graphics& g)

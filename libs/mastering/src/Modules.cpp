@@ -80,6 +80,26 @@ namespace
 }
 
 // ============================================================================
+// Texto explicativo (para módulos sin visualizador natural)
+
+namespace
+{
+    struct InfoText final : Component
+    {
+        explicit InfoText (const String& t) : text (t) {}
+        void paint (Graphics& g) override
+        {
+            g.setColour (studioui::Colours::graphBg);
+            g.fillRoundedRectangle (getLocalBounds().toFloat(), 6.0f);
+            g.setColour (studioui::Colours::dim);
+            g.setFont (FontOptions (13.0f));
+            g.drawFittedText (text, getLocalBounds().reduced (16), Justification::topLeft, 12);
+        }
+        String text;
+    };
+}
+
+// ============================================================================
 // 1. Entrada
 
 class InputModule final : public Module
@@ -112,7 +132,8 @@ public:
     {
         return std::make_unique<ParamPanel> (*apvts, std::vector<ParamPanel::Spec> {
             { pid ("subsonic"), studioui::utf8 ("SUBSÓNICO") }, { pid ("invL"), "Invertir L" }, { pid ("invR"), "Invertir R" },
-            { pid ("mono"), "Escuchar en mono" }, { pid ("gain"), "GANANCIA" } });
+            { pid ("mono"), "Escuchar en mono" }, { pid ("gain"), "GANANCIA" } },
+            nullptr, std::make_unique<HistoryView> (*this, false));
     }
 
 private:
@@ -186,7 +207,8 @@ public:
             { pid ("auto"), studioui::utf8 ("Release automático") },
             { pid ("threshold"), "THRESHOLD" }, { pid ("ratio"), "RATIO" }, { pid ("attack"), "ATTACK" }, { pid ("release"), "RELEASE" },
             { pid ("knee"), "KNEE" }, { pid ("scHpf"), "SC HPF" }, { pid ("makeup"), "MAKEUP" }, { pid ("mix"), "MIX" } },
-            std::make_unique<ReductionMeter> ([this] { return getMeterDb(); }, "GR", 12.0f));
+            std::make_unique<ReductionMeter> ([this] { return getMeterDb(); }, "GR", 12.0f),
+            std::make_unique<HistoryView> (*this, true, 12.0f));
     }
 
 private:
@@ -239,7 +261,16 @@ public:
     {
         return std::make_unique<ParamPanel> (*apvts, std::vector<ParamPanel::Spec> {
             { pid ("mode"), "MODO" }, { pid ("autoGain"), "Compensar nivel" },
-            { pid ("drive"), "DRIVE" }, { pid ("mix"), "MIX" }, { pid ("output"), "OUTPUT" } });
+            { pid ("drive"), "DRIVE" }, { pid ("mix"), "MIX" }, { pid ("output"), "OUTPUT" } },
+            nullptr,
+            std::make_unique<TransferCurveView> ([this] (float x)
+            {
+                const auto m = (dspcore::Saturator::Mode) (int) mode->load();
+                const float d = dbToGain (drive->load()), o = dbToGain (out->load()), mx = mix->load() / 100.0f;
+                float y = dspcore::Saturator::staticCurve (m, x * d);
+                if (autoGain->load() > 0.5f) y /= d;
+                return x + mx * (y * o - x);
+            }, [this] { return takeInputPeak(); }));
     }
 
 private:
@@ -266,14 +297,17 @@ public:
         dsp.setWidth (width->load() / 100.0f);
         dsp.setBassMonoHz (bass->load() < 20.0f ? 0.0f : bass->load());
         dsp.process (ch, numCh, n);
+        if (numCh > 1) scope.push (ch[0], ch[1], n);
     }
     std::unique_ptr<Component> createPanel() override
     {
         return std::make_unique<ParamPanel> (*apvts, std::vector<ParamPanel::Spec> {
-            { pid ("width"), "ANCHO" }, { pid ("bassMono"), "GRAVES EN MONO" } });
+            { pid ("width"), "ANCHO" }, { pid ("bassMono"), "GRAVES EN MONO" } },
+            nullptr, std::make_unique<Goniometer> (scope));
     }
 
 private:
+    StereoScopeFifo scope;
     dspcore::StereoImager dsp;
     std::atomic<float> *width {}, *bass {};
 };
@@ -324,7 +358,14 @@ public:
     {
         return std::make_unique<ParamPanel> (*apvts, std::vector<ParamPanel::Spec> {
             { pid ("drive"), "DRIVE" }, { pid ("ceiling"), "TECHO" }, { pid ("knee"), "SUAVIDAD" } },
-            std::make_unique<ReductionMeter> ([this] { return getMeterDb(); }, "CLIP", 6.0f));
+            std::make_unique<ReductionMeter> ([this] { return getMeterDb(); }, "CLIP", 6.0f),
+            std::make_unique<TransferCurveView> ([this] (float x)
+            {
+                dspcore::SoftClipper c;
+                c.setCeilingDb (ceiling->load());
+                c.setKnee (knee->load() / 100.0f);
+                return c.process (x * dbToGain (drive->load()));
+            }, [this] { return takeInputPeak(); }, [this] { return ceiling->load(); }));
     }
 
 private:
@@ -378,7 +419,8 @@ public:
         return std::make_unique<ParamPanel> (*apvts, std::vector<ParamPanel::Spec> {
             { pid ("truePeak"), "True peak (ISP)" },
             { pid ("gain"), "GANANCIA" }, { pid ("ceiling"), "TECHO" }, { pid ("release"), "RELEASE" }, { pid ("lookahead"), "LOOKAHEAD" } },
-            std::make_unique<ReductionMeter> ([this] { return getMeterDb(); }, "GR", 12.0f));
+            std::make_unique<ReductionMeter> ([this] { return getMeterDb(); }, "GR", 12.0f),
+            std::make_unique<HistoryView> (*this, true, 12.0f));
     }
 
 private:
@@ -410,7 +452,12 @@ public:
     std::unique_ptr<Component> createPanel() override
     {
         return std::make_unique<ParamPanel> (*apvts, std::vector<ParamPanel::Spec> {
-            { pid ("bits"), studioui::utf8 ("RESOLUCIÓN DE EXPORTACIÓN") }, { pid ("shaping"), "Noise shaping" } });
+            { pid ("bits"), studioui::utf8 ("RESOLUCIÓN DE EXPORTACIÓN") }, { pid ("shaping"), "Noise shaping" } },
+            nullptr, std::make_unique<InfoText> (studioui::utf8 (
+                "Activa el dither solo en el máster final y elige la resolución del archivo que vas a exportar.\n\n"
+                "• 24 bits: entrega a distribuidoras y plataformas de streaming.\n"
+                "• 16 bits: CD. El noise shaping desplaza el ruido hacia frecuencias donde el oído es menos sensible.\n\n"
+                "Exportando en 32 bits flotantes no hace falta dither: deja este módulo en bypass.")));
     }
 
 private:

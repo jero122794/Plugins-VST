@@ -190,6 +190,23 @@ public:
     void setMix (float m) noexcept        { mix = std::clamp (m, 0.0f, 1.0f); }
     void setAutoGain (bool a) noexcept    { autoGain = a; }
 
+    /** Curva estática de cada modo (sin filtros): para dibujarla en la UI. Ganancia 1 en pequeña señal. */
+    static float staticCurve (Mode m, float x) noexcept
+    {
+        switch (m)
+        {
+            case Mode::Tape: return std::tanh (x);
+            case Mode::Tube:
+            {
+                constexpr float k = 1.0f, b = 0.25f;
+                const float tb = std::tanh (k * b);
+                return (std::tanh (k * (x + b)) - tb) / (k * (1.0f - tb * tb));
+            }
+            case Mode::Transformer: return std::tanh (x * 1.5f) / 1.5f + 0.15f * (std::tanh (x) - x);
+        }
+        return x;
+    }
+
     float processSample (int c, float x) noexcept
     {
         float y = x * drive;

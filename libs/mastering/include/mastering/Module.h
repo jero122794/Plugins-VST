@@ -7,8 +7,11 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -44,12 +47,43 @@ public:
 
     virtual std::unique_ptr<juce::Component> createPanel() = 0;
 
+    /** Procesa y registra los picos de entrada/salida para los medidores de la UI. Usar esto, no process(). */
+    void run (float* const* ch, int numCh, int numSamples) noexcept
+    {
+        inPeak.store (std::max (inPeak.load (std::memory_order_relaxed), peakOf (ch, numCh, numSamples)), std::memory_order_relaxed);
+        process (ch, numCh, numSamples);
+        outPeak.store (std::max (outPeak.load (std::memory_order_relaxed), peakOf (ch, numCh, numSamples)), std::memory_order_relaxed);
+        const float m = getMeterDb();
+        meterHold.store (std::max (meterHold.load (std::memory_order_relaxed), m), std::memory_order_relaxed);
+        blocksProcessed.fetch_add (1, std::memory_order_relaxed);
+    }
+
+    /** Cambia cada vez que llega audio: la UI lo usa para no confundir "sin audio nuevo" con silencio. */
+    std::uint32_t getBlocksProcessed() const noexcept { return blocksProcessed.load (std::memory_order_relaxed); }
+
+    /** Pico desde la última lectura (la UI lee ~30 veces por segundo: no se pierde ningún pico). */
+    float takeInputPeak() noexcept  { return inPeak.exchange (0.0f); }
+    float takeOutputPeak() noexcept { return outPeak.exchange (0.0f); }
+    float takeMeterHold() noexcept  { return meterHold.exchange (0.0f); }
+
 protected:
+    static float peakOf (float* const* ch, int numCh, int n) noexcept
+    {
+        float p = 0.0f;
+        for (int c = 0; c < numCh; ++c)
+            for (int i = 0; i < n; ++i) p = std::max (p, std::fabs (ch[c][i]));
+        return p;
+    }
+
     std::atomic<float>* param (const char* name) const { return apvts->getRawParameterValue (paramPrefix + name); }
     juce::String pid (const char* name) const { return paramPrefix + name; }
 
     APVTS* apvts = nullptr;
     juce::String paramPrefix;
+
+private:
+    std::atomic<float> inPeak { 0.0f }, outPeak { 0.0f }, meterHold { 0.0f };
+    std::atomic<std::uint32_t> blocksProcessed { 0 };
 };
 
 struct ModuleInfo
@@ -109,7 +143,7 @@ public:
         writePos = (writePos + n) & (delaySize - 1);
 
         // El módulo procesa siempre (también en bypass): al reactivarlo su estado está al día.
-        module->process (ch, numCh, n);
+        module->run (ch, numCh, n);
 
         const bool on = isOn();
         if (on && fade >= 1.0f)
