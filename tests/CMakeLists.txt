@@ -16,7 +16,7 @@ else()
 endif()
 add_test(NAME eq_tests COMMAND eq_tests)
 
-foreach(t loudness mastering pitch)
+foreach(t loudness mastering pitch furia)
     add_executable(${t}_tests test_${t}.cpp)
     target_link_libraries(${t}_tests PRIVATE dspcore)
     if(MSVC)

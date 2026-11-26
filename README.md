@@ -7,7 +7,8 @@ Plugins de audio propios para uso personal. Formatos: **AU** (Logic), **VST3** y
 | **MasterChain** | Cadena de mastering completa: entrada, EQ, compresor, saturación, imagen, clipper, limitador true-peak y dither, con medición EBU R128 |
 | **MC Limiter** · **MC BusComp** · **MC Saturator** · **MC Imager** · **MC Clipper** · **MC Meter** | Cada módulo de la cadena como plugin suelto (mismo código) |
 | **PrismaEQ** | EQ dinámico de 8 bandas con analizador (también es el EQ de MasterChain) |
-| **OptoComp** | Compresor óptico LA-2A (válvula) / LA-3A (estado sólido) |
+| **OptoComp** | Compresor óptico: T-2 (válvula) / T-3 (estado sólido) |
+| **Furia** | Compresor de carácter: ratios 1:1 a Nuke y Opto, detector con HP / realce / link, distorsión de 2º y 3º armónico |
 | **Afina** | Corrección de afinación en tiempo real por escala (detección YIN + resíntesis PSOLA con conservación de formantes) |
 
 ## Compilar en macOS
@@ -82,6 +83,21 @@ Medido en los tests: detección con error < 0,5 cents; una nota cantada +39 cent
 
 Notas: en estéreo se corrige la suma mono (la voz principal es mono). Los primeros ~25 ms de cada nota pasan sin corregir, para que el ataque no produzca saltos de octava.
 
+## Furia: controles
+
+| Control | Qué hace |
+|---|---|
+| Input | Empuja la señal contra un umbral fijo (-18 dB): más input = más compresión |
+| Attack / Release | 1–10: de 0,05 a 30 ms y de 50 ms a 3,5 s |
+| Output | ±20 dB |
+| Ratio | 1:1 (solo color: con Dist 2/3 satura sin comprimir), 2, 3, 4, 6, 10, 20, Nuke (casi un muro) y Opto (10:1 con release que se alarga con la compresión sostenida) |
+| Detector | HP (el bombo deja de hacer bombear la mezcla), Band (+6 dB a 6 kHz en el detector: de-esser), Link (estéreo enlazado) |
+| Audio | HP 80 Hz en la ruta de audio, Dist 2 (2º armónico, cálido) o Dist 3 (3º, tipo cinta); sobremuestreado |
+| Mix | Compresión en paralelo (Dry ↔ Comp) |
+| Power | Bypass con la latencia compensada (exacto, verificado en tests) |
+
+Los botones RATIO, DETECTOR y AUDIO recorren los estados como en el hardware; también puedes hacer clic directamente en cada LED.
+
 ## OptoComp: controles
 
 | Control | Qué hace |
@@ -110,6 +126,7 @@ ctest --test-dir build --output-on-failure
 | `mastering_tests` | Techo del limitador, dither, compresor de bus, saturación, imagen, entrada |
 | `eq_tests` | Curva dibujada = audio medido, pendientes, bandas dinámicas, M/S |
 | `dsp_tests` | Modelo óptico de OptoComp |
+| `furia_tests` | Curvas de ratio, tiempos, modo Opto, detector, distorsión de Furia |
 | `pitch_tests` | Detección, corrección, escalas, velocidad, transparencia, formantes y ataques de Afina |
 | `*_ProcessorTests` | Cada plugin como lo usa un DAW: latencia, bypass, estado, bloques irregulares, A/B igualado |
 
