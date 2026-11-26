@@ -9,9 +9,9 @@ on:
 jobs:
   macos:
     name: macOS (universal) – AU / VST3 / CLAP
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configurar
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -43,7 +43,7 @@ jobs:
           ditto -c -k --keepParent VST3/OptoComp.vst3      "$GITHUB_WORKSPACE/dist/OptoComp-VST3-macOS.zip"
           ditto -c -k --keepParent CLAP/OptoComp.clap      "$GITHUB_WORKSPACE/dist/OptoComp-CLAP-macOS.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: OptoComp-macOS
           path: dist/*.zip
@@ -52,7 +52,7 @@ jobs:
     name: Linux – tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Dependencias
         run: |
           sudo apt-get update
