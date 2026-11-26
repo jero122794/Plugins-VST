@@ -21,8 +21,13 @@ target_include_directories(dspcore INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libs/ds
 target_compile_features(dspcore INTERFACE cxx_std_17)
 
 # --- UI compartida (requiere JUCE) -------------------------------------------
+# Fuentes compiladas dentro de cada plugin que la use (JUCE compila sus módulos por target)
 add_library(studioui INTERFACE)
 target_include_directories(studioui INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libs/studioui/include)
+target_sources(studioui INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/studioui/src/EqCore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/studioui/src/EqView.cpp)
+target_link_libraries(studioui INTERFACE dspcore)
 
 # --- Tests ------------------------------------------------------------------
 if(PLUGINS_BUILD_TESTS)

@@ -1,7 +1,9 @@
-#include "PluginEditor.h"
+#include <studioui/EqView.h>
 
-using namespace studioui;
-using namespace PrismaIDs;
+namespace studioui
+{
+
+static constexpr int numBands = EqCore::numBands;
 
 // ============================================================================
 // Analizador
@@ -37,8 +39,8 @@ void EqGraph::Analyzer::compute()
 // ============================================================================
 // Gráfico
 
-EqGraph::EqGraph (PrismaEQProcessor& p, std::function<void (int)> cb)
-    : proc (p), onSelect (std::move (cb))
+EqGraph::EqGraph (EqCore& c, std::function<void (int)> cb)
+    : core (c), onSelect (std::move (cb))
 {
     startTimerHz (30);
 }
@@ -96,22 +98,22 @@ int EqGraph::hitTest (juce::Point<float> pos) const
 
 void EqGraph::timerCallback()
 {
-    proc.preFifo.pull ([this] (const float* d, int n) { pre.consume (d, n); });
-    proc.postFifo.pull ([this] (const float* d, int n) { post.consume (d, n); });
+    core.preFifo.pull ([this] (const float* d, int n) { pre.consume (d, n); });
+    core.postFifo.pull ([this] (const float* d, int n) { post.consume (d, n); });
     if (pre.active)  pre.compute();
     if (post.active) post.compute();
 
     for (int b = 0; b < numBands; ++b)
     {
-        params[(size_t) b] = proc.readBand (b);
-        dyn[(size_t) b] = proc.getDynamicGainDb (b);
+        params[(size_t) b] = core.readBand (b);
+        dyn[(size_t) b] = core.getDynamicGainDb (b);
     }
     repaint();
 }
 
 juce::Path EqGraph::analyzerPath (const Analyzer& a, bool closed) const
 {
-    const double fs = proc.getSampleRate() > 0 ? proc.getSampleRate() : 48000.0;
+    const double fs = core.getBaseRate() > 0 ? core.getBaseRate() : 48000.0;
     juce::Path path;
     bool started = false;
     for (float x = plot.getX(); x <= plot.getRight(); x += 2.0f)
@@ -181,7 +183,7 @@ void EqGraph::paint (juce::Graphics& g)
     }
 
     // --- Curvas
-    const double rate = proc.getEqSampleRate();
+    const double rate = core.getProcessingRate();
     const int numPts = juce::jmax (2, (int) plot.getWidth() / 2);
     std::vector<float> total ((size_t) numPts, 0.0f), staticTotal ((size_t) numPts, 0.0f), freqs ((size_t) numPts);
     for (int i = 0; i < numPts; ++i)
@@ -287,20 +289,20 @@ void EqGraph::paint (juce::Graphics& g)
 
 void EqGraph::setParam (int b, const char* name, float plainValue)
 {
-    if (auto* param = proc.apvts.getParameter (band (b, name)))
+    if (auto* param = core.state->getParameter (EqCore::bandId (core.prefix, b, name)))
         param->setValueNotifyingHost (param->convertTo0to1 (plainValue));
 }
 
 void EqGraph::beginGesture (int b)
 {
     for (auto* n : { "freq", "gain" })
-        if (auto* param = proc.apvts.getParameter (band (b, n))) param->beginChangeGesture();
+        if (auto* param = core.state->getParameter (EqCore::bandId (core.prefix, b, n))) param->beginChangeGesture();
 }
 
 void EqGraph::endGesture (int b)
 {
     for (auto* n : { "freq", "gain" })
-        if (auto* param = proc.apvts.getParameter (band (b, n))) param->endChangeGesture();
+        if (auto* param = core.state->getParameter (EqCore::bandId (core.prefix, b, n))) param->endChangeGesture();
 }
 
 void EqGraph::mouseDown (const juce::MouseEvent& e)
@@ -372,11 +374,11 @@ void EqGraph::mouseMove (const juce::MouseEvent& e)
 // ============================================================================
 // Panel de banda
 
-BandPanel::BandPanel (PrismaEQProcessor& p) : proc (p)
+BandPanel::BandPanel (EqCore& eqCore) : core (eqCore)
 {
-    type.addItemList (typeNames, 1);
-    slope.addItemList (slopeNames, 1);
-    placement.addItemList (placementNames, 1);
+    type.addItemList (EqCore::typeNames, 1);
+    slope.addItemList (EqCore::slopeNames, 1);
+    placement.addItemList (EqCore::placementNames, 1);
     for (juce::Component* c : std::initializer_list<juce::Component*> { &on, &type, &slope, &placement, &freq, &gain, &q, &dynRange, &threshold, &attack, &release })
         addAndMakeVisible (c);
 
@@ -390,18 +392,19 @@ void BandPanel::showBand (int b)
     onAtt.reset(); typeAtt.reset(); slopeAtt.reset(); placementAtt.reset();
     freqAtt.reset(); gainAtt.reset(); qAtt.reset(); dynAtt.reset(); thrAtt.reset(); atkAtt.reset(); relAtt.reset();
 
-    auto& s = proc.apvts;
-    onAtt        = std::make_unique<BA> (s, PrismaIDs::band (b, "on"), on);
-    typeAtt      = std::make_unique<CA> (s, PrismaIDs::band (b, "type"), type);
-    slopeAtt     = std::make_unique<CA> (s, PrismaIDs::band (b, "slope"), slope);
-    placementAtt = std::make_unique<CA> (s, PrismaIDs::band (b, "placement"), placement);
-    freqAtt      = std::make_unique<SA> (s, PrismaIDs::band (b, "freq"), freq.slider);
-    gainAtt      = std::make_unique<SA> (s, PrismaIDs::band (b, "gain"), gain.slider);
-    qAtt         = std::make_unique<SA> (s, PrismaIDs::band (b, "q"), q.slider);
-    dynAtt       = std::make_unique<SA> (s, PrismaIDs::band (b, "dynRange"), dynRange.slider);
-    thrAtt       = std::make_unique<SA> (s, PrismaIDs::band (b, "threshold"), threshold.slider);
-    atkAtt       = std::make_unique<SA> (s, PrismaIDs::band (b, "attack"), attack.slider);
-    relAtt       = std::make_unique<SA> (s, PrismaIDs::band (b, "release"), release.slider);
+    auto& s = *core.state;
+    auto id = [&] (const char* n) { return EqCore::bandId (core.prefix, b, n); };
+    onAtt        = std::make_unique<BA> (s, id ("on"), on);
+    typeAtt      = std::make_unique<CA> (s, id ("type"), type);
+    slopeAtt     = std::make_unique<CA> (s, id ("slope"), slope);
+    placementAtt = std::make_unique<CA> (s, id ("placement"), placement);
+    freqAtt      = std::make_unique<SA> (s, id ("freq"), freq.slider);
+    gainAtt      = std::make_unique<SA> (s, id ("gain"), gain.slider);
+    qAtt         = std::make_unique<SA> (s, id ("q"), q.slider);
+    dynAtt       = std::make_unique<SA> (s, id ("dynRange"), dynRange.slider);
+    thrAtt       = std::make_unique<SA> (s, id ("threshold"), threshold.slider);
+    atkAtt       = std::make_unique<SA> (s, id ("attack"), attack.slider);
+    relAtt       = std::make_unique<SA> (s, id ("release"), release.slider);
 
     for (auto* k : { &freq, &gain, &q, &dynRange, &threshold, &attack, &release })
         k->slider.setColour (juce::Slider::rotarySliderFillColourId, Colours::band (b));
@@ -411,7 +414,7 @@ void BandPanel::showBand (int b)
 
 void BandPanel::refreshEnablement()
 {
-    const auto p = proc.readBand (band);
+    const auto p = core.readBand (band);
     gain.setEnabled (p.hasGain());
     dynRange.setEnabled (p.hasGain());
     for (auto* k : { &threshold, &attack, &release })
@@ -448,17 +451,15 @@ void BandPanel::resized()
 }
 
 // ============================================================================
-// Editor
+// Vista completa
 
-PrismaEQEditor::PrismaEQEditor (PrismaEQProcessor& p)
-    : AudioProcessorEditor (&p), proc (p),
-      graph (p, [this] (int b) { selectBand (b); }),
-      panel (p)
+EqView::EqView (EqCore& c)
+    : core (c),
+      graph (c, [this] (int b) { selectBand (b); }),
+      panel (c)
 {
-    setLookAndFeel (&lnf);
     addAndMakeVisible (graph);
     addAndMakeVisible (panel);
-
     for (int b = 0; b < numBands; ++b)
     {
         auto& btn = bandButtons[(size_t) b];
@@ -466,25 +467,17 @@ PrismaEQEditor::PrismaEQEditor (PrismaEQProcessor& p)
         btn.onClick = [this, b] { selectBand (b); };
         addAndMakeVisible (btn);
     }
-
     output.slider.setColour (juce::Slider::rotarySliderFillColourId, Colours::accent);
     addAndMakeVisible (output);
     addAndMakeVisible (hq);
-    outputAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, PrismaIDs::output, output.slider);
-    hqAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, PrismaIDs::hq, hq);
+    outputAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (*core.state, core.prefix + "output", output.slider);
+    hqAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (*core.state, core.prefix + "hq", hq);
     hq.setTooltip ("Procesa a 2x: evita que las campanas agudas se estrechen cerca de Nyquist");
-
-    setSize (980, 640);
     selectBand (0);
     startTimerHz (15);
 }
 
-PrismaEQEditor::~PrismaEQEditor()
-{
-    setLookAndFeel (nullptr);
-}
-
-void PrismaEQEditor::selectBand (int b)
+void EqView::selectBand (int b)
 {
     selected = b;
     graph.setSelected (b);
@@ -492,12 +485,12 @@ void PrismaEQEditor::selectBand (int b)
     timerCallback();
 }
 
-void PrismaEQEditor::timerCallback()
+void EqView::timerCallback()
 {
     for (int b = 0; b < numBands; ++b)
     {
         auto& btn = bandButtons[(size_t) b];
-        const bool enabled = proc.readBand (b).enabled;
+        const bool enabled = core.readBand (b).enabled;
         const auto col = Colours::band (b);
         btn.setColour (juce::TextButton::buttonColourId, enabled ? col.withAlpha (b == selected ? 0.9f : 0.45f) : Colours::face);
         btn.setColour (juce::TextButton::textColourOffId, enabled ? Colours::graphBg : (b == selected ? col : Colours::dim));
@@ -505,19 +498,10 @@ void PrismaEQEditor::timerCallback()
     panel.refreshEnablement();
 }
 
-void PrismaEQEditor::paint (juce::Graphics& g)
+void EqView::resized()
 {
-    g.fillAll (Colours::panel);
-    g.setColour (Colours::text);
-    g.setFont (juce::FontOptions (19.0f, juce::Font::bold));
-    g.drawText ("PRISMA EQ", 20, 12, 160, 28, juce::Justification::centredLeft);
-}
-
-void PrismaEQEditor::resized()
-{
-    auto r = getLocalBounds().reduced (20, 12);
+    auto r = getLocalBounds();
     auto header = r.removeFromTop (28);
-    header.removeFromLeft (170);
     hq.setBounds (header.removeFromRight (60));
     header.removeFromRight (16);
     for (int b = numBands - 1; b >= 0; --b)
@@ -525,11 +509,13 @@ void PrismaEQEditor::resized()
         bandButtons[(size_t) b].setBounds (header.removeFromRight (30));
         header.removeFromRight (4);
     }
-
     r.removeFromTop (10);
-    graph.setBounds (r.removeFromTop (420));
-    r.removeFromTop (12);
-    output.setBounds (r.removeFromRight (90).withTrimmedTop (16));
-    r.removeFromRight (12);
-    panel.setBounds (r);
+    auto bottom = r.removeFromBottom (160);
+    graph.setBounds (r);
+    bottom.removeFromTop (12);
+    output.setBounds (bottom.removeFromRight (90).withTrimmedTop (16));
+    bottom.removeFromRight (12);
+    panel.setBounds (bottom);
 }
+
+} // namespace studioui

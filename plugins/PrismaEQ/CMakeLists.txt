@@ -15,8 +15,7 @@ juce_add_plugin(PrismaEQ
     COPY_PLUGIN_AFTER_BUILD ${APPLE})   # en macOS se instala en ~/Library/Audio/Plug-Ins
 
 target_sources(PrismaEQ PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp)
+    Source/PluginProcessor.cpp)
 
 target_compile_definitions(PrismaEQ PUBLIC
     JUCE_WEB_BROWSER=0
@@ -46,8 +45,7 @@ if(PLUGINS_BUILD_TESTS)
     juce_add_console_app(PrismaEQ_ProcessorTests PRODUCT_NAME "PrismaEQ_ProcessorTests")
     target_sources(PrismaEQ_ProcessorTests PRIVATE
         tests/ProcessorTests.cpp
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp)
+        Source/PluginProcessor.cpp)
     target_compile_definitions(PrismaEQ_ProcessorTests PRIVATE
         JucePlugin_Name="PrismaEQ"
         JUCE_MODAL_LOOPS_PERMITTED=1
