@@ -1,29 +1,56 @@
 #pragma once
-
+//
+// UI de OptoComp: frontal de rack de época. Diseño propio inspirado en el lenguaje
+// visual del hardware de los 60–70 (frontal metálico, VU analógico, perillas
+// acanaladas, interruptores de palanca). Sin marcas ni logotipos de terceros.
+//
 #include "PluginProcessor.h"
+#include <studioui/StudioLookAndFeel.h>
 
-class OptoLookAndFeel final : public juce::LookAndFeel_V4
+namespace hw
+{
+    struct Palette
+    {
+        juce::Colour faceTop, faceBottom, ear, text, textShadow, accent;
+        bool dark;
+    };
+    Palette paletteFor (int model);   // 0 = válvula (gris metálico), 1 = transistor (negro)
+}
+
+/** Perillas y palanca dibujadas como hardware. El estilo se elige con la propiedad "dark" del componente. */
+class HardwareLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
-    OptoLookAndFeel();
     void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h, float pos,
                            float startAngle, float endAngle, juce::Slider&) override;
 };
 
-/** Medidor horizontal de reducción de ganancia (0–20 dB) con balística tipo VU. */
-class GainReductionMeter final : public juce::Component, private juce::Timer
+/** Interruptor de palanca metálico de dos posiciones (arriba = on). */
+class BatToggle final : public juce::Button
 {
 public:
-    explicit GainReductionMeter (OptoCompProcessor& p) : proc (p) { startTimerHz (30); }
+    BatToggle() : juce::Button ("toggle") { setClickingTogglesState (true); }
+    void paintButton (juce::Graphics&, bool highlighted, bool down) override;
+};
+
+/** VU analógico: escala lineal en tensión (0 VU al 71 %), aguja con física de muelle amortiguado. */
+class VuMeter final : public juce::Component, private juce::Timer
+{
+public:
+    explicit VuMeter (OptoCompProcessor&);
+    void setDark (bool d) { dark = d; repaint(); }
     void paint (juce::Graphics&) override;
 
 private:
     void timerCallback() override;
+    static float deflection (float vu);   // VU → fracción del recorrido (0–1)
+
     OptoCompProcessor& proc;
-    float shown = 0.0f;
+    float position = 0.708f, velocity = 0.0f;
+    bool dark = false;
 };
 
-class OptoCompEditor final : public juce::AudioProcessorEditor
+class OptoCompEditor final : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
     explicit OptoCompEditor (OptoCompProcessor&);
@@ -33,29 +60,35 @@ public:
     void resized() override;
 
 private:
-    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-    using ComboAttachment  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
-    using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
+    void timerCallback() override;
+    void drawKnobScale (juce::Graphics&, juce::Slider&, const hw::Palette&, bool tube);
+    void drawEngraved (juce::Graphics&, const juce::String&, juce::Rectangle<float>, float size, const hw::Palette&,
+                       juce::Justification = juce::Justification::centred, bool bold = true);
 
-    struct Knob
-    {
-        juce::Slider slider;
-        juce::Label label;
-        std::unique_ptr<SliderAttachment> attachment;
-    };
-
-    void setupKnob (Knob&, const char* paramId, const juce::String& name, bool big, const juce::String& suffix);
-    void setupCombo (juce::ComboBox&, const char* paramId, std::unique_ptr<ComboAttachment>&);
+    using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using BA = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     OptoCompProcessor& proc;
-    OptoLookAndFeel lnf;
+    HardwareLookAndFeel hardwareLnf;
+    studioui::StudioLookAndFeel barLnf;
 
-    Knob gain, peak, emphasis, color, mix;
-    juce::ComboBox model, mode, oversampling;
-    std::unique_ptr<ComboAttachment> modelAtt, modeAtt, osAtt;
-    juce::ToggleButton link { "Stereo Link" };
-    std::unique_ptr<ButtonAttachment> linkAtt;
-    GainReductionMeter meter;
+    juce::Slider gain, peak, meterSelect;
+    BatToggle limitSwitch;
+    VuMeter vu;
+    std::unique_ptr<SA> gainAtt, peakAtt, meterAtt;
+    std::unique_ptr<BA> limitAtt;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OptoCompEditor)
+    // Barra inferior (controles modernos)
+    juce::TextButton tubeButton { "T-2  TUBE" }, solidButton { "T-3  SOLID STATE" };
+    studioui::LabelledKnob emphasis { "HF EMPHASIS" }, color { "COLOR" }, mix { "MIX" };
+    juce::ComboBox oversampling;
+    juce::ToggleButton link { "Stereo link" };
+    std::unique_ptr<SA> emphAtt, colorAtt, mixAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> osAtt;
+    std::unique_ptr<BA> linkAtt;
+
+    int model = -1;
+    juce::Rectangle<int> rack, bar;
+    juce::Point<float> lampCentre;
+    bool lampOn = false;
 };

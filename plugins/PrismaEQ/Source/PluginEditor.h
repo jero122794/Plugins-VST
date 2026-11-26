@@ -14,7 +14,7 @@ public:
     }
     ~PrismaEQEditor() override { setLookAndFeel (nullptr); }
 
-    void selectBand (int b) { view.selectBand (b); }
+    void selectBand (int b) { view.openBand (b); }
 
     void paint (juce::Graphics& g) override
     {

@@ -19,6 +19,7 @@ namespace ParamID
     inline constexpr auto mix           = "mix";
     inline constexpr auto link          = "link";
     inline constexpr auto oversampling  = "oversampling";
+    inline constexpr auto meterMode     = "meterMode";
 }
 
 class OptoCompProcessor final : public juce::AudioProcessor
@@ -52,6 +53,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     float getGainReductionDb() const noexcept { return compressor.getGainReductionDb(); }
+    float getOutputRms() const noexcept { return outputRms.load(); }
 
     juce::AudioProcessorValueTreeState apvts;
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
@@ -79,6 +81,7 @@ private:
     std::atomic<float>* pMix   = nullptr;
     std::atomic<float>* pLink  = nullptr;
     std::atomic<float>* pOs    = nullptr;
+    std::atomic<float> outputRms { 0.0f };
 
     double baseSampleRate = 48000.0;
     int maxBlock = 512;

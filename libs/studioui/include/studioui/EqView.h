@@ -6,13 +6,20 @@
 namespace studioui
 {
 
-/** Gráfico interactivo: rejilla, analizador pre/post, curvas y nodos arrastrables. */
+class BandPanel;
+
+/** Dibuja el icono de la forma de un filtro (para la tira de bandas y el panel flotante). */
+void drawFilterIcon (juce::Graphics&, juce::Rectangle<float>, const dspcore::EqBandParams&, juce::Colour);
+
+/** Gráfico interactivo: rejilla, analizador pre/post, curvas, nodos y panel flotante de la banda. */
 class EqGraph final : public juce::Component, private juce::Timer
 {
 public:
     EqGraph (EqCore&, std::function<void (int)> onSelect);
+    ~EqGraph() override;
 
-    void setSelected (int band) { selected = band; repaint(); }
+    void setSelected (int band);
+    void showPopup (bool show);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -22,6 +29,7 @@ public:
     void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
 
     static constexpr float minFreq = 20.0f, maxFreq = 20000.0f, rangeDb = 24.0f;
 
@@ -61,7 +69,12 @@ private:
     Analyzer pre, post;
     juce::Rectangle<float> plot;
 
+    void placePopup();
+
     int selected = 0, dragging = -1, hovered = -1;
+    bool popupVisible = false;
+    juce::Point<float> mousePos { -1.0f, -1.0f };
+    std::unique_ptr<BandPanel> popup;
     std::array<dspcore::EqBandParams, EqCore::numBands> params {};
     std::array<float, EqCore::numBands> dyn {};
 };
@@ -94,21 +107,44 @@ private:
     std::unique_ptr<SA> freqAtt, gainAtt, qAtt, dynAtt, thrAtt, atkAtt, relAtt;
 };
 
-/** Vista completa del EQ: botones de banda, HQ, gráfico, panel de banda y salida. */
+/** Tira inferior (una celda por banda): encendido, forma, valores y medidor dinámico. */
+class BandStrip final : public juce::Component, private juce::Timer
+{
+public:
+    BandStrip (EqCore&, std::function<void (int)> onSelect);
+    void setSelected (int b) { selected = b; repaint(); }
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void mouseUp (const juce::MouseEvent&) override;
+
+private:
+    void timerCallback() override { repaint(); }
+    juce::Rectangle<int> cellBounds (int band) const;
+
+    EqCore& core;
+    std::function<void (int)> onSelect;
+    std::array<juce::TextButton, EqCore::numBands> onButtons;
+    std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>, EqCore::numBands> onAtts;
+    int selected = 0;
+};
+
+/** Vista completa del EQ: gráfico con panel flotante, tira de bandas, fase, HQ y salida. */
 class EqView final : public juce::Component, private juce::Timer
 {
 public:
     explicit EqView (EqCore&);
+    void paint (juce::Graphics&) override;
     void resized() override;
     void selectBand (int band);
+    /** Selecciona la banda y abre su panel flotante. */
+    void openBand (int band) { selectBand (band); graph.showPopup (true); }
 
 private:
     void timerCallback() override;
 
     EqCore& core;
     EqGraph graph;
-    BandPanel panel;
-    std::array<juce::TextButton, EqCore::numBands> bandButtons;
+    BandStrip strip;
     LabelledKnob output { "OUTPUT" };
     juce::ToggleButton hq { "HQ" };
     juce::ComboBox phase;

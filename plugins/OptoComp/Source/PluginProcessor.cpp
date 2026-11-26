@@ -10,7 +10,7 @@ APVTS::ParameterLayout OptoCompProcessor::createLayout()
 
     auto pct = AudioParameterFloatAttributes().withLabel ("%");
     l.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamID::model, 1 }, "Model",
-                                                   StringArray { "LA-2A (Tube)", "LA-3A (Solid State)" }, 0));
+                                                   StringArray { "T-2 Tube", "T-3 Solid State" }, 0));
     l.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamID::peakReduction, 1 }, "Peak Reduction",
                                                   NormalisableRange<float> (0.0f, 100.0f, 0.1f), 40.0f));
     l.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamID::gain, 1 }, "Gain",
@@ -27,6 +27,9 @@ APVTS::ParameterLayout OptoCompProcessor::createLayout()
     l.add (std::make_unique<AudioParameterBool> (ParameterID { ParamID::link, 1 }, "Stereo Link", true));
     l.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamID::oversampling, 1 }, "Oversampling",
                                                    StringArray { "1x", "2x", "4x" }, 1));
+    // Selector del VU, como en el hardware: reducción de ganancia o nivel de salida (+4 / +10)
+    l.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamID::meterMode, 1 }, "Meter",
+                                                   StringArray { "Gain Reduction", "Output +4", "Output +10" }, 0));
     return l;
 }
 
@@ -189,6 +192,12 @@ void OptoCompProcessor::processChunk (float* const* channels, int numCh, int num
     }
 
     dryWet.mixWetSamples (block);
+
+    // Nivel RMS de salida para el VU (la balística se aplica en la UI)
+    double sum = 0.0;
+    for (int c = 0; c < numCh; ++c)
+        for (int n = 0; n < numSamples; ++n) sum += (double) channels[c][n] * channels[c][n];
+    outputRms.store ((float) std::sqrt (sum / (double) juce::jmax (1, numCh * numSamples)));
 }
 
 juce::AudioProcessorEditor* OptoCompProcessor::createEditor()

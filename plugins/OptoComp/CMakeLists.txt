@@ -49,6 +49,7 @@ if(PLUGINS_BUILD_TESTS)
         Source/PluginEditor.cpp)
     target_compile_definitions(OptoComp_ProcessorTests PRIVATE
         JucePlugin_Name="OptoComp"
+        JUCE_MODAL_LOOPS_PERMITTED=1
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0)
     target_link_libraries(OptoComp_ProcessorTests PRIVATE
@@ -58,4 +59,10 @@ if(PLUGINS_BUILD_TESTS)
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)
     add_test(NAME OptoComp_ProcessorTests COMMAND OptoComp_ProcessorTests)
+endif()
+
+# Solo las cabeceras de estilo compartido (sin compilar el EQ dentro de OptoComp)
+target_include_directories(OptoComp PRIVATE ${CMAKE_SOURCE_DIR}/libs/studioui/include)
+if(PLUGINS_BUILD_TESTS)
+    target_include_directories(OptoComp_ProcessorTests PRIVATE ${CMAKE_SOURCE_DIR}/libs/studioui/include)
 endif()

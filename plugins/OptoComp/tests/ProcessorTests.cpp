@@ -136,23 +136,47 @@ static void testEditorCreates()
     CHECK (ed != nullptr && ed->getWidth() > 0, "editor válido");
 }
 
-/** `--snapshot ruta.png`: guarda una captura del editor (para revisar la UI sin DAW). */
-static int snapshot (const char* path)
+/** `--snapshot ruta.png [modelo]`: procesa audio con la UI abierta y guarda una captura. */
+static int snapshot (const char* path, int model)
 {
     OptoCompProcessor p;
+    p.setRateAndBufferSizeDetails (48000.0, 512);
+    p.prepareToPlay (48000.0, 512);
+    setParam (p, ParamID::model, (float) model);
+    setParam (p, ParamID::peakReduction, 62.0f);
+    setParam (p, ParamID::gain, 4.0f);
     std::unique_ptr<juce::AudioProcessorEditor> ed (p.createEditor());
-    auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 2.0f);
+    juce::AudioBuffer<float> buf (2, 512);
+    juce::MidiBuffer midi;
+    long long t = 0;
+    for (int step = 0; step < 60; ++step)
+    {
+        for (int b = 0; b < 9; ++b)
+        {
+            for (int n = 0; n < 512; ++n, ++t)
+            {
+                const double sec = (double) t / 48000.0;
+                const float env = 0.35f + 0.25f * (float) std::sin (sec * 3.0);
+                const float v = env * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 220.0 * sec);
+                buf.setSample (0, n, v);
+                buf.setSample (1, n, v);
+            }
+            p.processBlock (buf, midi);
+        }
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (30);
+    }
+    auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.5f);
     juce::File out (juce::File::getCurrentWorkingDirectory().getChildFile (path));
     out.deleteFile();
     juce::FileOutputStream os (out);
-    return juce::PNGImageFormat().writeImageToStream (img, os) ? 0 : 1;
+    return os.openedOk() && juce::PNGImageFormat().writeImageToStream (img, os) ? 0 : 1;
 }
 
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
-    if (argc == 3 && juce::String (argv[1]) == "--snapshot")
-        return snapshot (argv[2]);
+    if (argc >= 3 && juce::String (argv[1]) == "--snapshot")
+        return snapshot (argv[2], argc >= 4 ? juce::String (argv[3]).getIntValue() : 0);
     testLayoutsAndBlockSizes();
     testOversamplingSwitchAndLatency();
     testTransparentWhenNeutral();
