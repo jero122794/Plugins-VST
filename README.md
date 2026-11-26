@@ -1,5 +1,7 @@
 # Plugins-VST
 
+📖 **[Manual de los plugins](docs/MANUAL.md)** · 💾 **[Guía de instalación (Mac y Windows)](docs/INSTALACION.md)**
+
 Plugins de audio propios para uso personal. Formatos: **AU** (Logic), **VST3** y **CLAP** (Reaper), y una versión standalone.
 
 | Plugin | Qué es |

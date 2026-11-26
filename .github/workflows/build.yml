@@ -75,6 +75,37 @@ jobs:
           name: Plugins-macOS
           path: Plugins-macOS.zip
 
+  windows:
+    name: Windows (x64) – VST3 / CLAP
+    runs-on: windows-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configurar
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Compilar
+        run: cmake --build build --config Release --parallel
+
+      - name: Tests del DSP
+        run: ctest --test-dir build -C Release --output-on-failure -R "_tests$"
+
+      - name: Empaquetar
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/VST3, dist/CLAP | Out-Null
+          Get-ChildItem -Path build/plugins -Recurse -Directory -Filter *.vst3 | Where-Object { $_.FullName -match 'Release' } |
+            ForEach-Object { Copy-Item $_.FullName -Destination dist/VST3 -Recurse -Force }
+          Get-ChildItem -Path build/plugins -Recurse -File -Filter *.clap | Where-Object { $_.FullName -match 'Release' } |
+            ForEach-Object { Copy-Item $_.FullName -Destination dist/CLAP -Force }
+          Compress-Archive -Path dist/* -DestinationPath Plugins-Windows.zip
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: Plugins-Windows
+          path: Plugins-Windows.zip
+
   linux-tests:
     name: Linux – tests
     runs-on: ubuntu-24.04

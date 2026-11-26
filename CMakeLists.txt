@@ -11,6 +11,12 @@ project(PluginsVST VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(MSVC)
+    # Fuentes en UTF-8 (textos con tildes) y M_PI disponible
+    add_compile_options(/utf-8)
+    add_compile_definitions(_USE_MATH_DEFINES NOMINMAX)
+endif()
+
 option(PLUGINS_BUILD_PLUGINS "Compilar los plugins (requiere JUCE)" ON)
 option(PLUGINS_BUILD_TESTS   "Compilar los tests del DSP"            ON)
 option(PLUGINS_BUILD_CLAP    "Generar también formato CLAP"          ON)
