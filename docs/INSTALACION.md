@@ -94,9 +94,9 @@ Requisitos: Windows 10 u 11 de 64 bits.
 
 ### Opción B: compilar desde el código
 
-1. Instala **Visual Studio 2022 Community** (gratuito) con la carga de trabajo **"Desarrollo para el escritorio con C++"**. Incluye CMake.
+1. Instala **Visual Studio Community** (2022 o posterior) (gratuito) con la carga de trabajo **"Desarrollo para el escritorio con C++"**. Incluye CMake.
 2. Instala [Git para Windows](https://git-scm.com/download/win).
-3. Abre **"x64 Native Tools Command Prompt for VS 2022"** (búscalo en el menú Inicio) y ejecuta:
+3. Abre **"x64 Native Tools Command Prompt for VS"** (búscalo en el menú Inicio) y ejecuta:
 
    ```bash
    git clone https://github.com/jero122794/Plugins-VST.git
@@ -107,7 +107,7 @@ Requisitos: Windows 10 u 11 de 64 bits.
    ```
 
    ```bash
-   cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+   cmake -S . -B build -A x64
    ```
 
    ```bash
