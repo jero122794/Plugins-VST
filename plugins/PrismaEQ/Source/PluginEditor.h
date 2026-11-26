@@ -27,6 +27,7 @@ public:
     void resized() override { view.setBounds (getLocalBounds().reduced (20, 12)); }
 
 private:
+    studioui::DefaultLookAndFeelScope defaultLnf;
     studioui::StudioLookAndFeel lnf;
     studioui::EqView view;
 };

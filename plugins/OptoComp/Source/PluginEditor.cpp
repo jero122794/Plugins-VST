@@ -205,7 +205,7 @@ void VuMeter::paint (Graphics& g)
     arc (zero, 1.0f, radius, 1.6f, Colour (0xffc0251c));
     arc (zero, 1.0f, radius - 6.0f, 9.0f, Colour (0xffc0251c));
 
-    g.setFont (FontOptions (11.0f, Font::bold));
+    g.setFont (studioui::hardware (11.0f, studioui::Weight::SemiBold));
     for (int vu : { -20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3 })
     {
         const float a = angleFor (deflection ((float) vu));
@@ -216,7 +216,7 @@ void VuMeter::paint (Graphics& g)
         g.drawText ((vu > 0 ? "+" : "") + String (std::abs (vu)), Rectangle<float> (26.0f, 14.0f).withCentre (tp), Justification::centred);
     }
     // Escala de porcentaje (inferior)
-    g.setFont (FontOptions (8.5f));
+    g.setFont (studioui::hardware (8.5f, studioui::Weight::Medium));
     g.setColour (Colour (0xff1d1a14).withAlpha (0.75f));
     for (int pct = 0; pct <= 100; pct += 20)
     {
@@ -224,14 +224,14 @@ void VuMeter::paint (Graphics& g)
         g.drawLine (Line<float> (polar (pivot, radius - 14.0f, a), polar (pivot, radius - 19.0f, a)), 1.0f);
         g.drawText (String (pct), Rectangle<float> (22.0f, 11.0f).withCentre (polar (pivot, radius - 27.0f, a)), Justification::centred);
     }
-    g.setFont (FontOptions (15.0f, Font::bold));
+    g.setFont (studioui::hardware (15.0f, studioui::Weight::SemiBold));
     g.setColour (Colour (0xff1d1a14));
     g.drawText ("VU", Rectangle<float> (40.0f, 18.0f).withPosition (face.getX() + 10.0f, face.getY() + 8.0f), Justification::centredLeft);
     g.setColour (Colour (0xffc0251c));
     g.drawText ("VU", Rectangle<float> (40.0f, 18.0f).withPosition (face.getRight() - 50.0f, face.getY() + 8.0f), Justification::centredRight);
 
     const int mode = (int) proc.apvts.getRawParameterValue (ParamID::meterMode)->load();
-    g.setFont (FontOptions (8.5f, Font::bold));
+    g.setFont (studioui::hardware (8.5f, studioui::Weight::SemiBold));
     g.setColour (Colour (0xff1d1a14).withAlpha (0.7f));
     g.drawText (mode == 0 ? "GAIN REDUCTION" : (mode == 1 ? "OUTPUT  +4" : "OUTPUT  +10"),
                 face.withTrimmedTop (face.getHeight() * 0.66f).withHeight (12.0f), Justification::centred);
@@ -355,7 +355,7 @@ void OptoCompEditor::timerCallback()
 void OptoCompEditor::drawEngraved (Graphics& g, const String& text, Rectangle<float> r, float size, const hw::Palette& pal,
                                    Justification just, bool bold)
 {
-    g.setFont (FontOptions (size, bold ? Font::bold : Font::plain));
+    g.setFont (studioui::hardware (size, bold ? studioui::Weight::SemiBold : studioui::Weight::Medium));
     g.setColour (pal.textShadow);
     g.drawText (text, r.translated (0.0f, pal.dark ? -1.0f : 1.0f), just);
     g.setColour (pal.text);
@@ -366,7 +366,7 @@ void OptoCompEditor::drawKnobScale (Graphics& g, Slider& s, const hw::Palette& p
 {
     const auto c = s.getBounds().toFloat().getCentre();
     const float R = (float) s.getWidth() * 0.5f;
-    g.setFont (FontOptions (tube ? 12.0f : 15.0f, Font::bold));
+    g.setFont (studioui::hardware (tube ? 12.0f : 15.0f, studioui::Weight::SemiBold));
     const int steps = 10;
     for (int i = 0; i <= steps; ++i)
     {
@@ -468,7 +468,7 @@ void OptoCompEditor::paint (Graphics& g)
     g.setColour (studioui::Colours::panel);
     g.fillRect (bar);
     g.setColour (studioui::Colours::dim);
-    g.setFont (FontOptions (11.0f, Font::bold));
+    g.setFont (studioui::hardware (11.0f, studioui::Weight::SemiBold));
     g.drawText ("MODELO", bar.withWidth (90).withX (bar.getX() + 20), Justification::centredLeft);
 }
 

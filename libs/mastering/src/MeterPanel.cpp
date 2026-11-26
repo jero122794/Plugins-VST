@@ -77,7 +77,7 @@ void MeterPanel::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
     g.drawText ("INTEGRADO (LUFS)", r.removeFromTop (16.0f), juce::Justification::centredLeft);
     g.setColour (platformIdx > 0 ? targetColour (I, target) : Colours::text);
-    g.setFont (juce::FontOptions (40.0f, juce::Font::bold));
+    g.setFont (studioui::mono (40.0f));
     g.drawText (lufsText (I), r.removeFromTop (46.0f), juce::Justification::centredLeft);
 
     // --- Rejilla de valores
@@ -101,7 +101,7 @@ void MeterPanel::paint (juce::Graphics& g)
         // Rojo solo si al redondear a 0.1 dB supera -1 dBTP (el objetivo habitual de streaming)
         const bool overCeiling = juce::String (items[i].label) == "TRUE PEAK" && tp > -0.95;
         g.setColour (overCeiling ? juce::Colour (0xffff6b6b) : Colours::text);
-        g.setFont (juce::FontOptions (17.0f));
+        g.setFont (studioui::mono (17.0f));
         g.drawText (items[i].value, cell, juce::Justification::centredLeft);
     }
     r.removeFromTop (cellH * 3.0f + 6.0f);

@@ -63,6 +63,8 @@ endif()
 
 # Solo las cabeceras de estilo compartido (sin compilar el EQ dentro de OptoComp)
 target_include_directories(OptoComp PRIVATE ${CMAKE_SOURCE_DIR}/libs/studioui/include)
+target_link_libraries(OptoComp PRIVATE studiofonts)
 if(PLUGINS_BUILD_TESTS)
     target_include_directories(OptoComp_ProcessorTests PRIVATE ${CMAKE_SOURCE_DIR}/libs/studioui/include)
+    target_link_libraries(OptoComp_ProcessorTests PRIVATE studiofonts)
 endif()

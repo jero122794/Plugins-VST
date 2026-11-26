@@ -157,6 +157,7 @@ public:
     }
 
 private:
+    studioui::DefaultLookAndFeelScope defaultLnf;
     ModulePluginProcessor& proc;
     studioui::StudioLookAndFeel lnf;
     std::unique_ptr<juce::Component> panel;

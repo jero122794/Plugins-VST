@@ -3,6 +3,7 @@
 // Estilo visual común para los plugins (requiere JUCE).
 //
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "Fonts.h"
 
 namespace studioui
 {
@@ -58,6 +59,39 @@ public:
         setColour (TextButton::textColourOnId, Colours::text);
     }
 
+    /**
+        Toda fuente "por defecto" (las FontOptions sin tipografía explícita) se resuelve a IBM Plex:
+        negrita → SemiBold, normal → Regular; monoespaciada → Plex Mono.
+    */
+    juce::Typeface::Ptr getTypefaceForFont (const juce::Font& f) override
+    {
+        if (f.getTypefaceName() == juce::Font::getDefaultMonospacedFontName())
+            return monoTypeface();
+        if (f.getTypefaceName() == juce::Font::getDefaultSansSerifFontName())
+            return sansTypeface (f.isBold() ? Weight::SemiBold : Weight::Regular);
+        return juce::LookAndFeel_V4::getTypefaceForFont (f);
+    }
+
+    /** Los valores de las perillas, en Plex Mono: los dígitos tienen el mismo ancho y no saltan al girar. */
+    juce::Label* createSliderTextBox (juce::Slider& s) override
+    {
+        auto* l = juce::LookAndFeel_V4::createSliderTextBox (s);
+        l->setFont (juce::Font (mono (13.0f)));
+        return l;
+    }
+
+    juce::Font getComboBoxFont (juce::ComboBox& box) override
+    {
+        return juce::Font (sans (std::min (14.0f, (float) box.getHeight() * 0.55f), Weight::Medium));
+    }
+
+    juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override
+    {
+        return juce::Font (sans (std::min (14.0f, (float) buttonHeight * 0.55f), Weight::Medium));
+    }
+
+    juce::Font getPopupMenuFont() override { return juce::Font (sans (14.0f)); }
+
     void drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos,
                            float startAngle, float endAngle, juce::Slider& s) override
     {
@@ -89,6 +123,31 @@ public:
         g.setColour (s.isEnabled() ? Colours::text : Colours::dim);
         g.fillPath (pointer, juce::AffineTransform::rotation (angle).translated (centre));
     }
+};
+
+/**
+    Instala el estilo de la suite como LookAndFeel por defecto mientras exista algún editor:
+    así cualquier texto (también los dibujados directamente con Graphics) usa las fuentes incrustadas.
+    Cada editor tiene uno como primer miembro.
+*/
+class DefaultLookAndFeelScope
+{
+public:
+    DefaultLookAndFeelScope()
+    {
+        ++liveScopes();
+        juce::LookAndFeel::setDefaultLookAndFeel (&shared.get());
+    }
+    ~DefaultLookAndFeelScope()
+    {
+        if (--liveScopes() == 0)   // último editor cerrado: se devuelve el estilo por defecto de JUCE
+            juce::LookAndFeel::setDefaultLookAndFeel (nullptr);
+    }
+    StudioLookAndFeel& get() { return shared.get(); }
+
+private:
+    static int& liveScopes() { static int n = 0; return n; }   // solo en el hilo de mensajes
+    juce::SharedResourcePointer<StudioLookAndFeel> shared;
 };
 
 /** Perilla con etiqueta encima y valor debajo. */

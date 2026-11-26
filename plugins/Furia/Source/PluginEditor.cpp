@@ -29,9 +29,7 @@ namespace
                     Justification j = Justification::centred, bool bold = true, bool italic = false)
     {
         g.setColour (c);
-        int style = bold ? Font::bold : Font::plain;
-        if (italic) style |= Font::italic;
-        g.setFont (FontOptions (size, style));
+        g.setFont (italic ? studioui::brand (size) : studioui::hardware (size, bold ? studioui::Weight::SemiBold : studioui::Weight::Medium));
         g.drawText (t, r, j);
     }
 
@@ -75,7 +73,7 @@ void FuriaKnobLookAndFeel::drawRotarySlider (Graphics& g, int x, int y, int w, i
     const double lo = s.getMinimum(), hi = s.getMaximum();
     const double value = s.getValue();
     const int first = (int) std::ceil (lo), last = (int) std::floor (hi);
-    g.setFont (FontOptions (R * 0.19f, Font::bold));
+    g.setFont (studioui::hardware (R * 0.21f, studioui::Weight::Bold));
     for (int i = first; i <= last; ++i)
     {
         const float a = (float) ((double) i - value) / 10.0f * sweep;   // relativo al índice (arriba)

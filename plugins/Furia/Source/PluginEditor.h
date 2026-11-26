@@ -4,6 +4,7 @@
 // y perillas plateadas con la escala impresa sobre la perilla. Diseño propio.
 //
 #include "PluginProcessor.h"
+#include <studioui/StudioLookAndFeel.h>
 
 class FuriaKnobLookAndFeel final : public juce::LookAndFeel_V4
 {
@@ -34,6 +35,7 @@ private:
     void setParam (const char* id, float plain);
     float param (const char* id) const { return proc.apvts.getRawParameterValue (id)->load(); }
 
+    studioui::DefaultLookAndFeelScope defaultLnf;
     FuriaProcessor& proc;
     FuriaKnobLookAndFeel knobLnf;
     juce::Slider input, attack, release, output, mix;

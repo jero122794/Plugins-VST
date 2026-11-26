@@ -39,10 +39,10 @@ void NoteDisplay::paint (Graphics& g)
     // Nota
     auto noteArea = r.removeFromLeft (170.0f);
     g.setColour (voiced ? UI::text : UI::dim.withAlpha (0.5f));
-    g.setFont (FontOptions (64.0f, Font::bold));
+    g.setFont (studioui::sans (64.0f, studioui::Weight::SemiBold));
     g.drawText (note >= 0 ? noteName (note) : String ("--"), noteArea.withTrimmedBottom (18.0f), Justification::centredLeft);
     g.setColour (UI::dim);
-    g.setFont (FontOptions (12.0f));
+    g.setFont (studioui::mono (12.0f));
     g.drawText (voiced ? String (proc.getDetectedHz(), 1) + " Hz" : String ("sin tono"), noteArea.withTrimmedTop (noteArea.getHeight() - 20.0f),
                 Justification::centredLeft);
 

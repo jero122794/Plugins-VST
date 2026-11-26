@@ -47,6 +47,16 @@ endif()
 # --- Plugins ----------------------------------------------------------------
 if(PLUGINS_BUILD_PLUGINS)
     include(cmake/Dependencies.cmake)
+
+    # Tipografías incrustadas (SIL OFL): IBM Plex Sans/Mono y Barlow
+    file(GLOB STUDIO_FONT_FILES ${CMAKE_CURRENT_SOURCE_DIR}/libs/studioui/fonts/*.ttf)
+    juce_add_binary_data(StudioFonts HEADER_NAME StudioFontsData.h NAMESPACE StudioFontsData SOURCES ${STUDIO_FONT_FILES})
+    set_target_properties(StudioFonts PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    add_library(studiofonts INTERFACE)
+    target_include_directories(studiofonts INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libs/studioui/include)
+    target_sources(studiofonts INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libs/studioui/src/Fonts.cpp)
+    target_link_libraries(studiofonts INTERFACE StudioFonts)
+    target_link_libraries(studioui INTERFACE studiofonts)
     add_subdirectory(plugins/OptoComp)
     add_subdirectory(plugins/PrismaEQ)
     add_subdirectory(plugins/MasterChain)

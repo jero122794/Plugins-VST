@@ -62,7 +62,7 @@ void ModuleRow::paint (juce::Graphics& g)
     if (meterText.isNotEmpty())
     {
         g.setColour (juce::Colour (0xffff8a5c));
-        g.setFont (juce::FontOptions (10.5f));
+        g.setFont (studioui::mono (10.5f));
         g.drawText (meterText + " dB", textArea.withTrimmedTop (textArea.getHeight() - 22.0f), juce::Justification::centredLeft);
     }
     if (! active)

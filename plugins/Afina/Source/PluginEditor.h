@@ -61,6 +61,7 @@ private:
     using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
     using CA = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
+    studioui::DefaultLookAndFeelScope defaultLnf;
     AfinaProcessor& proc;
     studioui::StudioLookAndFeel lnf;
     NoteDisplay display;

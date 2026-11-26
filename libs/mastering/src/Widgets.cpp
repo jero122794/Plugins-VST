@@ -13,7 +13,7 @@ void ReductionMeter::paint (juce::Graphics& g)
     g.drawText (text, r.removeFromTop (16.0f), juce::Justification::centred);
     auto value = r.removeFromBottom (18.0f);
     g.setColour (Colours::text);
-    g.setFont (juce::FontOptions (12.0f));
+    g.setFont (mono (12.0f));
     g.drawText (juce::String (shown, 1) + " dB", value, juce::Justification::centred);
 
     auto bar = r.reduced (r.getWidth() * 0.5f - 8.0f, 4.0f);
@@ -116,7 +116,7 @@ void HistoryView::paint (juce::Graphics& g)
         g.setColour (Colours::face.withAlpha (0.9f));
         g.fillRoundedRectangle (pill, 4.0f);
         g.setColour (juce::Colour (0xffff8a5c));
-        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+        g.setFont (mono (11.0f));
         g.drawText (label, pill, juce::Justification::centred);
     }
 
@@ -271,7 +271,7 @@ void LevelMeter::paint (juce::Graphics& g)
     g.setColour (Colours::text);
     g.drawHorizontalLine ((int) yFor (hold), bar.getX(), bar.getRight());
     g.setColour (Colours::text);
-    g.setFont (juce::FontOptions (10.0f));
+    g.setFont (mono (10.0f));
     g.drawText (hold > -89.0f ? juce::String (hold, 1) : juce::String ("-inf"), value, juce::Justification::centred);
 }
 

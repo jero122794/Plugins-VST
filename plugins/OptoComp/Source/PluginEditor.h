@@ -68,6 +68,7 @@ private:
     using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
     using BA = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
+    studioui::DefaultLookAndFeelScope defaultLnf;
     OptoCompProcessor& proc;
     HardwareLookAndFeel hardwareLnf;
     studioui::StudioLookAndFeel barLnf;

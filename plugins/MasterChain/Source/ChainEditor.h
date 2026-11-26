@@ -45,6 +45,7 @@ private:
     void timerCallback() override;
     void rebuildRows();
 
+    studioui::DefaultLookAndFeelScope defaultLnf;
     MasterChainProcessor& proc;
     studioui::StudioLookAndFeel lnf;
     std::vector<std::unique_ptr<ModuleRow>> rows;

@@ -344,7 +344,7 @@ void EqGraph::paint (juce::Graphics& g)
         g.setColour (Colours::face.withAlpha (0.92f));
         g.fillRoundedRectangle (box, 4.0f);
         g.setColour (Colours::text);
-        g.setFont (juce::FontOptions (11.5f));
+        g.setFont (mono (11.0f));
         g.drawText (txt, box, juce::Justification::centred);
     }
 
@@ -642,11 +642,11 @@ void BandStrip::paint (juce::Graphics& g)
 
         const auto textCol = p.enabled ? Colours::text : Colours::dim;
         g.setColour (textCol);
-        g.setFont (juce::FontOptions (12.0f));
+        g.setFont (mono (12.0f));
         const juce::String f = p.freq >= 1000.0f ? juce::String (p.freq / 1000.0f, 2) + " kHz" : juce::String ((int) std::round (p.freq)) + " Hz";
         g.drawText (f, inner.removeFromTop (16.0f), juce::Justification::centredLeft);
         g.setColour (p.enabled ? Colours::dim : Colours::dim.withAlpha (0.6f));
-        g.setFont (juce::FontOptions (11.0f));
+        g.setFont (mono (11.0f));
         const juce::String second = p.hasGain() ? (p.gainDb >= 0 ? "+" : "") + juce::String (p.gainDb, 1) + " dB" : juce::String (p.slopeDbPerOct) + " dB/oct";
         const bool roomy = inner.getWidth() > 150.0f;   // en la cadena (más estrecha) se omite la Q
         g.drawText (roomy ? second + "   Q " + juce::String (p.q, 2) : second, inner.removeFromTop (15.0f), juce::Justification::centredLeft);

@@ -130,6 +130,16 @@ ctest --test-dir build --output-on-failure
 | `pitch_tests` | Detección, corrección, escalas, velocidad, transparencia, formantes y ataques de Afina |
 | `*_ProcessorTests` | Cada plugin como lo usa un DAW: latencia, bypass, estado, bloques irregulares, A/B igualado |
 
+## Tipografías
+
+Incrustadas en cada plugin (se ven igual en cualquier equipo, sin depender de las fuentes instaladas). Todas con licencia SIL Open Font License (ver `libs/studioui/fonts/`):
+
+- **IBM Plex Sans**: textos de la suite (MasterChain, módulos MC, PrismaEQ, Afina).
+- **IBM Plex Mono**: valores numéricos (perillas, LUFS, medidores). Los dígitos tienen el mismo ancho y no "bailan".
+- **Barlow / Barlow Condensed**: frontales de hardware (OptoComp, Furia).
+
+Para cambiarlas: sustituye los `.ttf` en `libs/studioui/fonts/` y los nombres en `libs/studioui/src/Fonts.cpp`.
+
 ## Estructura
 
 ```
