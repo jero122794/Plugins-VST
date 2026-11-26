@@ -86,7 +86,7 @@ public:
     void setAutoRelease (bool a) noexcept  { autoRelease = a; updateTimes(); }
     void setMakeupDb (float m) noexcept    { makeupTarget = std::pow (10.0f, m / 20.0f); }
     void setMix (float m) noexcept         { mix = std::clamp (m, 0.0f, 1.0f); }
-    void setSidechainHpf (float hz) noexcept { if (hz != scHz) { scHz = hz; updateSc(); } }
+    void setSidechainHpf (float hz) noexcept { if (std::fabs (hz - scHz) > 1.0e-3f) { scHz = hz; updateSc(); } }
 
     float getGainReductionDb() const noexcept { return grDb; }
 
@@ -246,7 +246,7 @@ public:
     void reset() { for (auto& s : hp) s.reset(); }
 
     void setWidth (float w) noexcept       { width = std::max (0.0f, w); }
-    void setBassMonoHz (float hz) noexcept { if (hz != bassHz) { bassHz = hz; update(); } }
+    void setBassMonoHz (float hz) noexcept { if (std::fabs (hz - bassHz) > 1.0e-3f) { bassHz = hz; update(); } }
 
     void process (float* const* ch, int numCh, int n) noexcept
     {

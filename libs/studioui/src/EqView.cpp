@@ -473,6 +473,16 @@ EqView::EqView (EqCore& c)
     outputAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (*core.state, core.prefix + "output", output.slider);
     hqAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (*core.state, core.prefix + "hq", hq);
     hq.setTooltip ("Procesa a 2x: evita que las campanas agudas se estrechen cerca de Nyquist");
+
+    if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (core.state->getParameter (core.prefix + "phase")))
+        phase.addItemList (p->choices, 1);
+    phase.setTooltip (utf8 ("Fase lineal: sin desplazamiento de fase (ideal en mastering), con más latencia. Las bandas dinámicas actúan como estáticas."));
+    addAndMakeVisible (phase);
+    phaseAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (*core.state, core.prefix + "phase", phase);
+    phaseNote.setFont (juce::FontOptions (11.0f));
+    phaseNote.setColour (juce::Label::textColourId, Colours::dim);
+    phaseNote.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (phaseNote);
     selectBand (0);
     startTimerHz (15);
 }
@@ -496,6 +506,14 @@ void EqView::timerCallback()
         btn.setColour (juce::TextButton::textColourOffId, enabled ? Colours::graphBg : (b == selected ? col : Colours::dim));
     }
     panel.refreshEnablement();
+
+    const bool linear = core.isLinearPhase();
+    hq.setEnabled (! linear);
+    bool anyDynamic = false;
+    for (int b = 0; b < numBands; ++b) anyDynamic |= core.readBand (b).isDynamic();
+    const double ms = core.getBaseRate() > 0 ? 1000.0 * core.getLatency() / core.getBaseRate() : 0.0;
+    phaseNote.setText (linear ? utf8 ("Latencia ") + juce::String (ms, 0) + " ms" + (anyDynamic ? utf8 (" · bandas dinámicas como estáticas") : juce::String())
+                              : juce::String(), juce::dontSendNotification);
 }
 
 void EqView::resized()
@@ -503,12 +521,16 @@ void EqView::resized()
     auto r = getLocalBounds();
     auto header = r.removeFromTop (28);
     hq.setBounds (header.removeFromRight (60));
+    header.removeFromRight (8);
+    phase.setBounds (header.removeFromRight (130));
     header.removeFromRight (16);
     for (int b = numBands - 1; b >= 0; --b)
     {
         bandButtons[(size_t) b].setBounds (header.removeFromRight (30));
         header.removeFromRight (4);
     }
+    header.removeFromRight (12);
+    phaseNote.setBounds (header);
     r.removeFromTop (10);
     auto bottom = r.removeFromBottom (160);
     graph.setBounds (r);

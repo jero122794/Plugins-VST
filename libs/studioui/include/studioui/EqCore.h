@@ -6,6 +6,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 #include <dspcore/DynamicEq.h>
+#include <dspcore/LinearPhase.h>
 
 #include <array>
 #include <atomic>
@@ -66,15 +67,22 @@ public:
 
     static void addParameters (juce::AudioProcessorValueTreeState::ParameterLayout&, const juce::String& prefix);
 
+    EqCore();
+    ~EqCore();
+
     void bind (juce::AudioProcessorValueTreeState&, const juce::String& prefix);
     void prepare (double sampleRate, int maxBlock, int numChannels);
     void process (float* const* ch, int numCh, int numSamples) noexcept;  // numSamples ≤ maxBlock
 
-    int getLatency() const noexcept { return hqState == 1 ? juce::roundToInt (oversampler->getLatencyInSamples()) : 0; }
+    int getLatency() const noexcept;
+
+    /** Fase lineal: FIR diseñado en un hilo de fondo; las bandas dinámicas actúan como estáticas. */
+    bool isLinearPhase() const noexcept { return pPhase != nullptr && pPhase->load() > 0.5f; }
 
     dspcore::EqBandParams readBand (int i) const noexcept;
     float getDynamicGainDb (int band) const noexcept { return eq.band (band).getDynamicGainDb(); }
-    double getProcessingRate() const noexcept { return eqRate.load(); }
+    /** Frecuencia con la que la UI debe evaluar la curva (en fase lineal, el prototipo casi analógico). */
+    double getProcessingRate() const noexcept { return isLinearPhase() ? linearDesignRate() : eqRate.load(); }
     double getBaseRate() const noexcept { return baseRate; }
 
     juce::AudioProcessorValueTreeState* state = nullptr;
@@ -83,6 +91,19 @@ public:
 
 private:
     void setHq (bool on);
+    double linearDesignRate() const noexcept { return std::max (baseRate * 16.0, 384000.0); }
+    int linearTaps() const noexcept { return baseRate <= 50000.0 ? 16384 : (baseRate <= 100000.0 ? 32768 : 65536); }
+    void designLinearIr();   // hilo de fondo
+
+    class IrThread;
+    std::unique_ptr<IrThread> irThread;
+    std::unique_ptr<juce::dsp::Convolution> convolution;
+    juce::CriticalSection convolutionLock;   // prepare() (recrea) frente al hilo de diseño (carga IR)
+    static constexpr int convBlock = 256;
+    std::atomic<int> linearLatency { 0 };
+    std::atomic<bool> prepared { false };
+    std::atomic<float>* pPhase = nullptr;
+    int numChannelsPrepared = 2;
 
     struct BandPtrs
     {

@@ -7,6 +7,9 @@
 namespace studioui
 {
 
+/** Literal UTF-8 → juce::String. JUCE interpreta los const char* como ASCII: sin esto, "Saturación" sale corrupto. */
+inline juce::String utf8 (const char* s) { return juce::String::fromUTF8 (s); }
+
 namespace Colours
 {
     inline const juce::Colour panel    { 0xff17191c };

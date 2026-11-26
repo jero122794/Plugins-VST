@@ -13,7 +13,9 @@
 //
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 namespace dspcore
@@ -199,10 +201,18 @@ private:
     long long total = 0;
 };
 
-/** Medidor completo estéreo (o mono). Llamar a process() desde el hilo de audio; leer resultados con los getters. */
+/**
+    Medidor completo estéreo (o mono). process() desde el hilo de audio; los getters
+    son atómicos y se pueden leer desde la UI. El integrado y el LRA se recalculan
+    cada 100 ms. reset() solo desde el hilo de audio (o con el audio parado): la UI
+    debe pedirlo con requestReset().
+*/
 class LoudnessMeter
 {
 public:
+    static constexpr int uiHistBins = 160;           // 0.5 LU por bin
+    static constexpr double uiHistMin = -70.0, uiHistStep = 0.5;
+
     void prepare (double sampleRate, int numChannels)
     {
         fs = sampleRate;
@@ -210,10 +220,10 @@ public:
         for (auto& k : kw) k.prepare (fs);
         stepSamples = (int) std::lround (fs * 0.1);   // 100 ms
         ring.assign (30, 0.0);                        // 30 pasos de 100 ms = 3 s
-        integrated.reset();
-        shortTermHist.reset();
         reset();
     }
+
+    void requestReset() noexcept { resetRequested.store (true); }
 
     void reset()
     {
@@ -224,15 +234,20 @@ public:
         stepsDone = 0;
         accum = 0.0;
         accumCount = 0;
-        momentary = shortTerm = -INFINITY;
-        truePeak = samplePeak = 0.0f;
-        maxMomentary = maxShortTerm = -INFINITY;
+        tpHold = spHold = 0.0f;
         integrated.reset();
         shortTermHist.reset();
+        for (auto& b : uiHist) b.store (0);
+        momentary.store (-INFINITY); shortTerm.store (-INFINITY);
+        maxMomentary.store (-INFINITY); maxShortTerm.store (-INFINITY);
+        integratedValue.store (-INFINITY); lraValue.store (0.0);
+        truePeak.store (0.0f); samplePeak.store (0.0f);
+        resetRequested.store (false);
     }
 
     void process (const float* const* ch, int n)
     {
+        if (resetRequested.load()) reset();
         for (int i = 0; i < n; ++i)
         {
             double sq = 0.0;
@@ -240,42 +255,29 @@ public:
             {
                 const float x = ch[c][i];
                 const double y = kw[(size_t) c].process (x);
-                sq += y * y;  // ponderación 1.0 para L/R
-                truePeak = std::max (truePeak, tp[(size_t) c].process (x));
-                samplePeak = std::max (samplePeak, std::fabs (x));
+                sq += y * y;  // ponderación 1.0 para L/R; en mono se suma un solo canal
+                tpHold = std::max (tpHold, tp[(size_t) c].process (x));
+                spHold = std::max (spHold, std::fabs (x));
             }
-            // En mono, BS.1770 suma un solo canal: no se duplica.
             accum += sq;
             if (++accumCount == stepSamples)
                 endStep();
         }
+        truePeak.store (tpHold);
+        samplePeak.store (spHold);
     }
 
-    double getMomentary() const noexcept   { return momentary; }
-    double getShortTerm() const noexcept   { return shortTerm; }
-    double getMaxMomentary() const noexcept { return maxMomentary; }
-    double getMaxShortTerm() const noexcept { return maxShortTerm; }
-    double getTruePeakDb() const noexcept  { return 20.0 * std::log10 (std::max (truePeak, 1.0e-12f)); }
-    double getSamplePeakDb() const noexcept { return 20.0 * std::log10 (std::max (samplePeak, 1.0e-12f)); }
+    double getMomentary() const noexcept    { return momentary.load(); }
+    double getShortTerm() const noexcept    { return shortTerm.load(); }
+    double getMaxMomentary() const noexcept { return maxMomentary.load(); }
+    double getMaxShortTerm() const noexcept { return maxShortTerm.load(); }
+    double getIntegrated() const noexcept   { return integratedValue.load(); }
+    double getLoudnessRange() const noexcept { return lraValue.load(); }
+    double getTruePeakDb() const noexcept   { return 20.0 * std::log10 (std::max (truePeak.load(), 1.0e-12f)); }
+    double getSamplePeakDb() const noexcept { return 20.0 * std::log10 (std::max (samplePeak.load(), 1.0e-12f)); }
 
-    double getIntegrated() const
-    {
-        const double ungated = integrated.gatedLoudness (-70.0);
-        if (! std::isfinite (ungated)) return -INFINITY;
-        return integrated.gatedLoudness (ungated - 10.0);
-    }
-
-    double getLoudnessRange() const
-    {
-        const double ungated = shortTermHist.gatedLoudness (-70.0);
-        if (! std::isfinite (ungated)) return 0.0;
-        const double gate = ungated - 20.0;
-        const double lo = shortTermHist.percentile (gate, 0.10), hi = shortTermHist.percentile (gate, 0.95);
-        return std::isfinite (lo) && std::isfinite (hi) ? hi - lo : 0.0;
-    }
-
-    /** Distribución de short-term (para el histograma de loudness de la UI). */
-    const LoudnessHistogram& getShortTermHistogram() const noexcept { return shortTermHist; }
+    /** Histograma de short-term para la UI (bins de 0.5 LU desde -70). */
+    std::uint32_t getUiHistogramBin (int b) const noexcept { return uiHist[(size_t) b].load (std::memory_order_relaxed); }
 
 private:
     void endStep()
@@ -286,7 +288,7 @@ private:
         accum = 0.0;
         accumCount = 0;
 
-        auto windowMs = [&] (int steps)
+        auto window = [&] (int steps)
         {
             double e = 0.0;
             for (int k = 1; k <= steps; ++k)
@@ -296,18 +298,36 @@ private:
 
         if (stepsDone >= 4)
         {
-            const double ms = windowMs (4);
-            momentary = LoudnessHistogram::toLufs (ms);
-            maxMomentary = std::max (maxMomentary, momentary);
-            integrated.add (momentary, ms);   // bloques de 400 ms con 75 % de solape
+            const double ms = window (4);
+            const double m = LoudnessHistogram::toLufs (ms);
+            momentary.store (m);
+            if (m > maxMomentary.load()) maxMomentary.store (m);
+            integrated.add (m, ms);   // bloques de 400 ms con 75 % de solape
         }
         if (stepsDone >= 30)
         {
-            const double ms = windowMs (30);
-            shortTerm = LoudnessHistogram::toLufs (ms);
-            maxShortTerm = std::max (maxShortTerm, shortTerm);
-            // EBU Tech 3342: short-term muestreado al menos 10 veces por segundo
-            shortTermHist.add (shortTerm, ms);
+            const double ms = window (30);
+            const double s = LoudnessHistogram::toLufs (ms);
+            shortTerm.store (s);
+            if (s > maxShortTerm.load()) maxShortTerm.store (s);
+            shortTermHist.add (s, ms);   // EBU Tech 3342: short-term muestreado 10 veces por segundo
+            if (s >= uiHistMin)
+            {
+                const int b = std::clamp ((int) ((s - uiHistMin) / uiHistStep), 0, uiHistBins - 1);
+                uiHist[(size_t) b].fetch_add (1, std::memory_order_relaxed);
+            }
+        }
+
+        // Integrado y LRA (cada 100 ms; el coste es recorrer los histogramas)
+        const double ungated = integrated.gatedLoudness (-70.0);
+        integratedValue.store (std::isfinite (ungated) ? integrated.gatedLoudness (ungated - 10.0) : -INFINITY);
+
+        const double stUngated = shortTermHist.gatedLoudness (-70.0);
+        if (std::isfinite (stUngated))
+        {
+            const double gate = stUngated - 20.0;
+            const double lo = shortTermHist.percentile (gate, 0.10), hi = shortTermHist.percentile (gate, 0.95);
+            lraValue.store (std::isfinite (lo) && std::isfinite (hi) ? hi - lo : 0.0);
         }
     }
 
@@ -321,9 +341,14 @@ private:
     long long stepsDone = 0;
     double accum = 0.0;
     int accumCount = 0;
-    double momentary = -INFINITY, shortTerm = -INFINITY, maxMomentary = -INFINITY, maxShortTerm = -INFINITY;
-    float truePeak = 0.0f, samplePeak = 0.0f;
+    float tpHold = 0.0f, spHold = 0.0f;
     LoudnessHistogram integrated, shortTermHist;
+
+    std::atomic<double> momentary { -INFINITY }, shortTerm { -INFINITY }, maxMomentary { -INFINITY }, maxShortTerm { -INFINITY };
+    std::atomic<double> integratedValue { -INFINITY }, lraValue { 0.0 };
+    std::atomic<float> truePeak { 0.0f }, samplePeak { 0.0f };
+    std::atomic<bool> resetRequested { false };
+    std::array<std::atomic<std::uint32_t>, uiHistBins> uiHist {};
 };
 
 } // namespace dspcore

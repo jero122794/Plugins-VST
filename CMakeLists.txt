@@ -29,6 +29,15 @@ target_sources(studioui INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/studioui/src/EqView.cpp)
 target_link_libraries(studioui INTERFACE dspcore)
 
+# --- Módulos de mastering (requiere JUCE) ------------------------------------
+add_library(mastering INTERFACE)
+target_include_directories(mastering INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libs/mastering/include)
+target_sources(mastering INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/mastering/src/Modules.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/mastering/src/Widgets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/mastering/src/MeterPanel.cpp)
+target_link_libraries(mastering INTERFACE studioui dspcore)
+
 # --- Tests ------------------------------------------------------------------
 if(PLUGINS_BUILD_TESTS)
     enable_testing()
@@ -40,4 +49,6 @@ if(PLUGINS_BUILD_PLUGINS)
     include(cmake/Dependencies.cmake)
     add_subdirectory(plugins/OptoComp)
     add_subdirectory(plugins/PrismaEQ)
+    add_subdirectory(plugins/MasterChain)
+    add_subdirectory(plugins/MasterModules)
 endif()

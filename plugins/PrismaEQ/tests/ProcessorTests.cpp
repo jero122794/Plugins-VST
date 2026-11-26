@@ -102,6 +102,55 @@ static void testStateRoundTrip()
            && pb.placement == dspcore::Placement::Side, "estado restaurado");
 }
 
+static void testLinearPhase()
+{
+    std::printf ("[ fase lineal: ganancia, latencia exacta y respuesta simétrica ]\n");
+    PrismaEQProcessor p;
+    prepare (p, 2);
+    setParam (p, PrismaIDs::band (2, "on"), 1.0f);
+    setParam (p, PrismaIDs::band (2, "type"), 0.0f);
+    setParam (p, PrismaIDs::band (2, "freq"), 1000.0f);
+    setParam (p, PrismaIDs::band (2, "gain"), 6.0f);
+    setParam (p, PrismaIDs::band (2, "q"), 1.0f);
+    setParam (p, "phase", 1.0f);
+
+    // La IR se diseña en un hilo de fondo: esperar a que se aplique
+    juce::AudioBuffer<float> buf (2, 512);
+    juce::MidiBuffer midi;
+    for (int i = 0; i < 100; ++i) { buf.clear(); p.processBlock (buf, midi); juce::Thread::sleep (10); }
+
+    bool finite = true;
+    const float g1k = gainDb (p, 1000, 2, 512, finite), g100 = gainDb (p, 100, 2, 512, finite);
+    const int lat = p.getLatencySamples();
+
+    // Impulso: el pico debe caer exactamente en la latencia reportada
+    for (int i = 0; i < 40; ++i) { buf.clear(); p.processBlock (buf, midi); }
+    std::vector<float> out;
+    for (int b = 0; b < 40; ++b)
+    {
+        buf.clear();
+        if (b == 0) { buf.setSample (0, 0, 1.0f); buf.setSample (1, 0, 1.0f); }
+        p.processBlock (buf, midi);
+        for (int i = 0; i < 512; ++i) out.push_back (buf.getSample (0, i));
+    }
+    const int peak = (int) (std::max_element (out.begin(), out.end(), [] (float a, float b) { return std::fabs (a) < std::fabs (b); }) - out.begin());
+    float asym = 0;
+    for (int k = 1; k < 2000; ++k) asym = std::max (asym, std::fabs (out[(size_t) (peak + k)] - out[(size_t) (peak - k)]));
+
+    std::printf ("    1 kHz %+.2f dB, 100 Hz %+.2f dB, latencia %d (pico del impulso en %d), asimetría %.1e\n", g1k, g100, lat, peak, asym);
+    CHECK (std::fabs (g1k - 6.0f) < 0.2f && std::fabs (g100) < 0.2f, "magnitud en fase lineal");
+    CHECK (peak == lat, "la latencia reportada debe coincidir con el retardo real");
+    CHECK (asym < 1e-4f, "respuesta al impulso simétrica (fase lineal)");
+    CHECK (finite, "salida finita");
+
+    // Una banda en Side no debe tocar material mono, también en fase lineal
+    setParam (p, PrismaIDs::band (2, "placement"), 2.0f);
+    for (int i = 0; i < 100; ++i) { buf.clear(); p.processBlock (buf, midi); juce::Thread::sleep (10); }
+    const float gSide = gainDb (p, 1000, 2, 512, finite);
+    std::printf ("    banda +6 dB en Side con señal mono: %+.3f dB\n", gSide);
+    CHECK (std::fabs (gSide) < 0.05f, "en fase lineal, Side no afecta a lo mono");
+}
+
 static int snapshot (const char* path)
 {
     PrismaEQProcessor p;
@@ -165,6 +214,7 @@ int main (int argc, char** argv)
     testNeutralAndBands();
     testHqLatency();
     testStateRoundTrip();
+    testLinearPhase();
     {
         std::printf ("[ el editor se crea y se destruye ]\n");
         PrismaEQProcessor p;

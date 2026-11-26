@@ -1,5 +1,6 @@
 // Tests del EQ dinámico. Sin JUCE.
 #include <dspcore/DynamicEq.h>
+#include <dspcore/LinearPhase.h>
 
 #include <cmath>
 #include <cstdio>
@@ -214,6 +215,40 @@ static void testOutputGain()
     CHECK (std::fabs (g + 6.0f) < 0.05f, "ganancia de salida (%.2f)", g);
 }
 
+static void testLinearPhaseFir()
+{
+    // Curva de mastering típica: corte 24 dB/oct a 30 Hz, shelf grave, campana, shelf agudo
+    std::vector<EqBandParams> bands = {
+        band (EqType::LowCut, 30, 0, 0.707f, 24), band (EqType::LowShelf, 100, 2.0f, 0.707f),
+        band (EqType::Bell, 2500, -2.5f, 1.2f), band (EqType::HighShelf, 12000, 1.5f, 0.707f),
+    };
+    const double analogRate = 48000.0 * 16;   // evaluar el prototipo casi analógico: sin cramping
+    auto target = [&] (double f) { double d = 0; for (auto& b : bands) d += EqBand::responseDb (b, analogRate, f); return d; };
+
+    const int n = 16384;
+    const auto h = designLinearPhaseFir (target, fs, n);
+
+    float asym = 0;
+    for (int k = 1; k < n / 2; ++k) asym = std::max (asym, std::fabs (h[(size_t) (n / 2 + k)] - h[(size_t) (n / 2 - k)]));
+
+    // Respuesta del FIR por FFT con relleno de ceros
+    const int m = n * 4;
+    std::vector<std::complex<double>> H ((size_t) m);
+    for (int i = 0; i < n; ++i) H[(size_t) i] = h[(size_t) i];
+    fft (H, false);
+    float worst = 0, worstF = 0;
+    for (double f : { 60.0, 100.0, 200.0, 500.0, 1000.0, 2500.0, 5000.0, 10000.0, 15000.0, 20000.0 })
+    {
+        const int bin = (int) std::lround (f * m / fs);
+        const float got = (float) (20.0 * std::log10 (std::abs (H[(size_t) bin])));
+        const float err = std::fabs (got - (float) target (f));
+        if (err > worst) { worst = err; worstF = (float) f; }
+    }
+    std::printf ("    FIR de %d taps: asimetría %.1e, peor error de magnitud %.3f dB (en %.0f Hz)\n", n, asym, worst, worstF);
+    CHECK (asym < 1e-6f, "la respuesta debe ser simétrica (fase lineal)");
+    CHECK (worst < 0.2f, "la magnitud del FIR debe seguir la curva entre 60 Hz y 20 kHz");
+}
+
 int main()
 {
     const std::vector<std::pair<std::string, std::function<void()>>> tests = {
@@ -227,6 +262,7 @@ int main()
         { "solo canal izquierdo", testLeftOnly },
         { "estabilidad con modulación", testModulationStability },
         { "ganancia de salida", testOutputGain },
+        { "FIR de fase lineal", testLinearPhaseFir },
     };
     for (auto& [name, fn] : tests)
     {

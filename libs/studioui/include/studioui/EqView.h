@@ -111,8 +111,11 @@ private:
     std::array<juce::TextButton, EqCore::numBands> bandButtons;
     LabelledKnob output { "OUTPUT" };
     juce::ToggleButton hq { "HQ" };
+    juce::ComboBox phase;
+    juce::Label phaseNote;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> hqAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> phaseAtt;
     int selected = 0;
 };
 

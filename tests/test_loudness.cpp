@@ -52,12 +52,6 @@ static void feedSine (LoudnessMeter& m, const std::vector<std::pair<double, doub
     }
 }
 
-static LoudnessMeter makeMeter (int numCh = 2)
-{
-    LoudnessMeter m;
-    m.prepare (fs, numCh);
-    return m;
-}
 
 static void tech3341Loudness()
 {
@@ -71,7 +65,7 @@ static void tech3341Loudness()
     };
     for (auto& c : cases)
     {
-        auto m = makeMeter();
+        LoudnessMeter m; m.prepare (fs, 2);
         feedSine (m, c.seg);
         const double I = m.getIntegrated();
         std::printf ("    %-34s I = %7.2f LUFS (esperado %.1f)", c.name, I, c.expectI);
@@ -89,7 +83,7 @@ static void tech3341Loudness()
 static void monoChannel()
 {
     // BS.1770: un seno de 1 kHz a 0 dBFS en un solo canal mide -3.01 LUFS
-    auto m = makeMeter (1);
+    LoudnessMeter m; m.prepare (fs, 1);
     feedSine (m, { { 0.0, 10 } });
     std::printf ("    mono 0 dBFS: %.2f LUFS (esperado -3.01)\n", m.getIntegrated());
     CHECK (std::fabs (m.getIntegrated() + 3.01) <= 0.1, "calibración en mono");
@@ -107,7 +101,7 @@ static void tech3341TruePeak()
     };
     for (auto& c : cases)
     {
-        auto m = makeMeter();
+        LoudnessMeter m; m.prepare (fs, 2);
         feedSine (m, { { 0, 2.0 } }, c.freq, c.phase, c.amp);
         const double tp = m.getTruePeakDb(), sp = m.getSamplePeakDb();
         std::printf ("    %-34s TP %+6.2f dBTP (sample peak %+6.2f)\n", c.name, tp, sp);
@@ -115,7 +109,7 @@ static void tech3341TruePeak()
     }
 
     // Más allá del estándar: seno de 19 kHz (cerca de Nyquist) con fase desfavorable
-    auto m = makeMeter();
+    LoudnessMeter m; m.prepare (fs, 2);
     feedSine (m, { { 0, 2.0 } }, 19000.0, 37.0, 0.5);
     std::printf ("    19 kHz, 0.50 FS:                   TP %+6.2f dBTP\n", m.getTruePeakDb());
     CHECK (m.getTruePeakDb() + 6.0 <= 0.2 && m.getTruePeakDb() + 6.0 >= -0.6, "true peak a 19 kHz");
@@ -132,7 +126,7 @@ static void tech3342Lra()
     };
     for (auto& c : cases)
     {
-        auto m = makeMeter();
+        LoudnessMeter m; m.prepare (fs, 2);
         feedSine (m, c.seg);
         const double lra = m.getLoudnessRange();
         std::printf ("    %-34s LRA = %5.2f LU (esperado %.0f ±1)\n", c.name, lra, c.expect);
@@ -142,7 +136,7 @@ static void tech3342Lra()
 
 static void silenceAndReset()
 {
-    auto m = makeMeter();
+    LoudnessMeter m; m.prepare (fs, 2);
     feedSine (m, { { -100, 5 } });
     CHECK (! std::isfinite (m.getIntegrated()), "silencio: integrado indefinido (-inf)");
     feedSine (m, { { -23, 5 } });

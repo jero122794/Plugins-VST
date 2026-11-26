@@ -56,6 +56,92 @@ void EqCore::addParameters (juce::AudioProcessorValueTreeState::ParameterLayout&
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { prefix + "output", 1 }, "EQ Output",
                                                        NormalisableRange<float> (-24.0f, 24.0f, 0.01f), 0.0f, dB));
     layout.add (std::make_unique<AudioParameterBool> (ParameterID { prefix + "hq", 1 }, "EQ HQ (2x)", false));
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { prefix + "phase", 1 }, "EQ Phase",
+                                                        StringArray { String::fromUTF8 ("Fase mínima"), "Fase lineal" }, 0));
+}
+
+// ----------------------------------------------------------------------------
+// Fase lineal: un hilo revisa los parámetros cada 40 ms y, si cambian, rediseña el FIR.
+
+class EqCore::IrThread final : public juce::Thread
+{
+public:
+    explicit IrThread (EqCore& c) : juce::Thread ("EQ linear phase"), core (c) {}
+    void run() override
+    {
+        while (! threadShouldExit())
+        {
+            if (core.prepared.load() && core.isLinearPhase())
+                core.designLinearIr();
+            wait (40);
+        }
+    }
+    EqCore& core;
+    juce::String lastKey;
+};
+
+EqCore::EqCore() : irThread (std::make_unique<IrThread> (*this)) {}
+
+EqCore::~EqCore()
+{
+    irThread->stopThread (2000);
+}
+
+int EqCore::getLatency() const noexcept
+{
+    if (isLinearPhase()) return linearLatency.load();
+    return hqState == 1 && oversampler != nullptr ? juce::roundToInt (oversampler->getLatencyInSamples()) : 0;
+}
+
+void EqCore::designLinearIr()
+{
+    // Clave de los parámetros relevantes: solo se rediseña si algo cambió
+    juce::String key;
+    std::array<dspcore::EqBandParams, numBands> bands;
+    for (int i = 0; i < numBands; ++i)
+    {
+        auto b = readBand (i);
+        b.dynRangeDb = 0.0f;   // en fase lineal las bandas son estáticas
+        bands[(size_t) i] = b;
+        if (b.enabled)
+            key << i << ':' << (int) b.type << ',' << b.freq << ',' << b.gainDb << ',' << b.q << ',' << b.slopeDbPerOct
+                << ',' << (int) b.placement << ';';
+    }
+    const float outDb = pOutput->load();
+    key << "out" << outDb << "fs" << baseRate;
+    if (key == irThread->lastKey)
+        return;
+    irThread->lastKey = key;
+
+    // Se procesa en M/S: una IR para Mid y otra para Side. Las bandas Stereo van a ambas;
+    // Left/Right no existen en M/S y se tratan como Stereo.
+    const double designRate = linearDesignRate();
+    auto target = [&] (bool side)
+    {
+        return [&bands, designRate, outDb, side] (double f)
+        {
+            double d = outDb;
+            for (auto& b : bands)
+            {
+                if ((b.placement == dspcore::Placement::Mid && side) || (b.placement == dspcore::Placement::Side && ! side))
+                    continue;
+                d += dspcore::EqBand::responseDb (b, designRate, f);
+            }
+            return d;
+        };
+    };
+    const int taps = linearTaps();
+    const auto hMid = dspcore::designLinearPhaseFir (target (false), baseRate, taps);
+    const auto hSide = dspcore::designLinearPhaseFir (target (true), baseRate, taps);
+
+    juce::AudioBuffer<float> ir (2, taps);
+    std::copy (hMid.begin(), hMid.end(), ir.getWritePointer (0));
+    std::copy (hSide.begin(), hSide.end(), ir.getWritePointer (1));
+    const juce::ScopedLock sl (convolutionLock);
+    if (convolution == nullptr) return;
+    convolution->loadImpulseResponse (std::move (ir), baseRate, juce::dsp::Convolution::Stereo::yes,
+                                      juce::dsp::Convolution::Trim::no, juce::dsp::Convolution::Normalise::no);
+    linearLatency.store (convolution->getLatency() + taps / 2);   // la latencia real de la convolución, no la pedida
 }
 
 void EqCore::bind (juce::AudioProcessorValueTreeState& s, const juce::String& p)
@@ -70,6 +156,7 @@ void EqCore::bind (juce::AudioProcessorValueTreeState& s, const juce::String& p)
     }
     pOutput = s.getRawParameterValue (p + "output");
     pHq = s.getRawParameterValue (p + "hq");
+    pPhase = s.getRawParameterValue (p + "phase");
 }
 
 dspcore::EqBandParams EqCore::readBand (int i) const noexcept
@@ -98,6 +185,19 @@ void EqCore::prepare (double sampleRate, int maxBlock, int numChannels)
     oversampler->initProcessing ((size_t) maxBlock);
     hqState = -1;
     setHq (pHq->load() > 0.5f);
+
+    prepared.store (false);
+    numChannelsPrepared = numChannels;
+    {
+        const juce::ScopedLock sl (convolutionLock);
+        convolution = std::make_unique<juce::dsp::Convolution> (juce::dsp::Convolution::Latency { convBlock });
+        convolution->prepare ({ sampleRate, (juce::uint32) maxBlock, (juce::uint32) juce::jmax (1, numChannels) });
+    }
+    linearLatency.store (convolution->getLatency() + linearTaps() / 2);
+    irThread->lastKey = {};
+    prepared.store (true);
+    if (! irThread->isThreadRunning())
+        irThread->startThread (juce::Thread::Priority::low);
 }
 
 void EqCore::setHq (bool on)
@@ -114,6 +214,27 @@ void EqCore::setHq (bool on)
 
 void EqCore::process (float* const* ch, int numCh, int numSamples) noexcept
 {
+    if (isLinearPhase())
+    {
+        preFifo.push (ch[0], numCh > 1 ? ch[1] : nullptr, numSamples);
+        auto toMs = [&] (bool forward)
+        {
+            if (numCh < 2) return;
+            for (int i = 0; i < numSamples; ++i)
+            {
+                const float a = ch[0][i], b = ch[1][i];
+                ch[0][i] = forward ? 0.5f * (a + b) : a + b;   // L/R → M/S, o M/S → L/R
+                ch[1][i] = forward ? 0.5f * (a - b) : a - b;
+            }
+        };
+        toMs (true);
+        juce::dsp::AudioBlock<float> block (ch, (size_t) numCh, (size_t) numSamples);
+        convolution->process (juce::dsp::ProcessContextReplacing<float> (block));
+        toMs (false);
+        postFifo.push (ch[0], numCh > 1 ? ch[1] : nullptr, numSamples);
+        return;
+    }
+
     setHq (pHq->load() > 0.5f);
     for (int i = 0; i < numBands; ++i)
         eq.setBand (i, readBand (i));

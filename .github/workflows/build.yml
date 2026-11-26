@@ -10,6 +10,19 @@ jobs:
   macos:
     name: macOS (universal) – AU / VST3 / CLAP
     runs-on: macos-latest
+    timeout-minutes: 120
+    env:
+      # directorio|producto|código AU
+      PLUGINS: |
+        plugins/OptoComp/OptoComp_artefacts|OptoComp|Opt2
+        plugins/PrismaEQ/PrismaEQ_artefacts|PrismaEQ|Prq1
+        plugins/MasterChain/MasterChain_artefacts|MasterChain|Mch1
+        plugins/MasterModules/MCLimiter_artefacts|MC Limiter|Mlm1
+        plugins/MasterModules/MCBusComp_artefacts|MC BusComp|Mbc1
+        plugins/MasterModules/MCSaturator_artefacts|MC Saturator|Mst1
+        plugins/MasterModules/MCImager_artefacts|MC Imager|Mim1
+        plugins/MasterModules/MCClipper_artefacts|MC Clipper|Mcl1
+        plugins/MasterModules/MCMeter_artefacts|MC Meter|Mmt1
     steps:
       - uses: actions/checkout@v5
 
@@ -19,43 +32,51 @@ jobs:
       - name: Compilar
         run: cmake --build build -j3
 
-      - name: Tests del DSP y del procesador
+      - name: Tests del DSP y de los procesadores
         run: ctest --test-dir build --output-on-failure
 
-      - name: Validar AU con auval (Logic usa este mismo validador)
+      - name: Validar AU con auval (el validador que usa Logic)
         run: |
           killall -9 AudioComponentRegistrar || true
-          auval -a | grep -i optocomp || true
-          auval -strict -v aufx Opt2 Plvs
-          auval -strict -v aufx Prq1 Plvs
+          echo "$PLUGINS" | while IFS='|' read -r dir name code; do
+            [ -z "$code" ] && continue
+            echo "::group::auval $name"
+            auval -strict -v aufx "$code" Plvs
+            echo "::endgroup::"
+          done
 
-      - name: Validar VST3 con pluginval
+      - name: Validar VST3 con pluginval (máxima exigencia)
         run: |
           curl -sSL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_macOS.zip
           unzip -q pluginval.zip
-          for p in OptoComp PrismaEQ; do
+          echo "$PLUGINS" | while IFS='|' read -r dir name code; do
+            [ -z "$name" ] && continue
+            echo "::group::pluginval $name"
             ./pluginval.app/Contents/MacOS/pluginval --strictness-level 10 --validate-in-process \
-              build/plugins/$p/${p}_artefacts/Release/VST3/$p.vst3
+              "build/$dir/Release/VST3/$name.vst3"
+            echo "::endgroup::"
           done
 
       - name: Empaquetar
         run: |
-          mkdir -p dist
-          for p in OptoComp PrismaEQ; do
-            d=build/plugins/$p/${p}_artefacts/Release
-            ditto -c -k --keepParent $d/AU/$p.component "dist/$p-AU-macOS.zip"
-            ditto -c -k --keepParent $d/VST3/$p.vst3    "dist/$p-VST3-macOS.zip"
-            ditto -c -k --keepParent $d/CLAP/$p.clap    "dist/$p-CLAP-macOS.zip"
+          mkdir -p dist/AU dist/VST3 dist/CLAP
+          echo "$PLUGINS" | while IFS='|' read -r dir name code; do
+            [ -z "$name" ] && continue
+            cp -R "build/$dir/Release/AU/$name.component" dist/AU/
+            cp -R "build/$dir/Release/VST3/$name.vst3"    dist/VST3/
+            cp -R "build/$dir/Release/CLAP/$name.clap"    dist/CLAP/
           done
+          cd dist && ditto -c -k --keepParent . ../Plugins-macOS.zip
 
       - uses: actions/upload-artifact@v5
         with:
           name: Plugins-macOS
-          path: dist/*.zip
+          path: Plugins-macOS.zip
 
   linux-tests:
     name: Linux – tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - name: Dependencias
@@ -63,9 +84,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build xvfb libasound2-dev libfreetype-dev libfontconfig1-dev \
             libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libgl1-mesa-dev libxcomposite-dev
-      - name: Configurar y compilar
+      - name: Configurar y compilar (solo tests)
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build -j4
+          cmake --build build -j4 --target dsp_tests eq_tests loudness_tests mastering_tests \
+            OptoComp_ProcessorTests PrismaEQ_ProcessorTests MasterChain_ProcessorTests
       - name: Tests
         run: xvfb-run -a ctest --test-dir build --output-on-failure
