@@ -12,6 +12,7 @@ juce_add_plugin(PrismaEQ
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     AU_MAIN_TYPE            kAudioUnitType_Effect
     VST3_CATEGORIES         Fx EQ
+    AAX_CATEGORY            EQ
     COPY_PLUGIN_AFTER_BUILD ${APPLE})   # en macOS se instala en ~/Library/Audio/Plug-Ins
 
 target_sources(PrismaEQ PRIVATE

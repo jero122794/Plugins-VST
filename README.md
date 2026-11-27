@@ -2,7 +2,7 @@
 
 📖 **[Manual de los plugins](docs/MANUAL.md)** · 💾 **[Guía de instalación (Mac y Windows)](docs/INSTALACION.md)**
 
-Plugins de audio propios para uso personal. Formatos: **AU** (Logic), **VST3** y **CLAP** (Reaper), y una versión standalone.
+Plugins de audio propios para uso personal. Formatos: **AU** (Logic), **VST3** y **CLAP** (Reaper), **AAX** (Pro Tools; requiere firma de PACE o Pro Tools Developer, ver la guía de instalación) y una versión standalone.
 
 | Plugin | Qué es |
 |---|---|

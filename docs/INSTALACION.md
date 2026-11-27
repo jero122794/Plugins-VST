@@ -6,6 +6,7 @@ Los plugins se distribuyen en tres formatos:
 |---|---|---|---|
 | **AU** (`.component`) | ✔ | — | Logic Pro, GarageBand (solo existe en Mac) |
 | **VST3** (`.vst3`) | ✔ | ✔ | Reaper, Cubase, Ableton Live, Studio One, FL Studio… |
+| **AAX** (`.aaxplugin`) | ✔ | ✔ | Pro Tools (ver [la sección de Pro Tools](#pro-tools-aax): requiere firma) |
 | **CLAP** (`.clap`) | ✔ | ✔ | Reaper, Bitwig |
 
 Hay dos caminos: **descargar los binarios ya compilados** (rápido) o **compilar desde el código** (si quieres modificar algo).
@@ -21,7 +22,7 @@ Requisitos: macOS 11 (Big Sur) o posterior. Binario universal: funciona en Apple
 ### Opción A: descargar los binarios
 
 1. En GitHub, abre el repositorio → pestaña **Actions** → la ejecución más reciente con ✓ verde en `main`.
-2. Al final de la página, en **Artifacts**, descarga **`Plugins-macOS`**. Contiene `Plugins-macOS.zip` con tres carpetas: `AU`, `VST3` y `CLAP`.
+2. Al final de la página, en **Artifacts**, descarga **`Plugins-macOS`**. Contiene `Plugins-macOS.zip` con las carpetas `AU`, `VST3`, `AAX` y `CLAP`.
 3. Descomprime y copia cada tipo en su carpeta (en Finder: **Ir → Ir a la carpeta…** y pega la ruta):
 
    | Copiar el contenido de | A |
@@ -82,7 +83,7 @@ Requisitos: Windows 10 u 11 de 64 bits.
 
 ### Opción A: descargar los binarios
 
-1. En GitHub: **Actions** → ejecución más reciente con ✓ verde → **Artifacts** → descarga **`Plugins-Windows`**. Contiene `Plugins-Windows.zip` con las carpetas `VST3` y `CLAP`.
+1. En GitHub: **Actions** → ejecución más reciente con ✓ verde → **Artifacts** → descarga **`Plugins-Windows`**. Contiene `Plugins-Windows.zip` con las carpetas `VST3`, `AAX` y `CLAP`.
 2. Copia (necesitarás permiso de administrador):
 
    | Copiar el contenido de | A |
@@ -140,6 +141,41 @@ Requisitos: Windows 10 u 11 de 64 bits.
 
 > Si tienes las versiones VST3 y CLAP a la vez, Reaper muestra las dos. Son idénticas: usa la que prefieras.
 
+### Pro Tools (Mac y Windows, formato AAX)
+
+> **Importante:** Pro Tools normal (Artist, Studio, Ultimate) **solo carga plugins AAX firmados digitalmente por PACE**. Los `.aaxplugin` que genera este proyecto no están firmados: tal cual solo los carga **Pro Tools Developer**, una versión gratuita para desarrolladores.
+
+**1. Instalar los `.aaxplugin`** (carpeta `AAX` del zip, o `build/AAX` si compilas en Mac). Hace falta permiso de administrador:
+
+| Sistema | Carpeta |
+|---|---|
+| macOS | `/Library/Application Support/Avid/Audio/Plug-Ins` |
+| Windows | `C:\Program Files\Common Files\Avid\Audio\Plug-Ins` |
+
+En Mac, por Terminal (desde la carpeta donde están los `.aaxplugin`):
+
+```bash
+sudo cp -R *.aaxplugin "/Library/Application Support/Avid/Audio/Plug-Ins/"
+```
+
+```bash
+sudo xattr -dr com.apple.quarantine "/Library/Application Support/Avid/Audio/Plug-Ins"
+```
+
+**2. Elegir cómo cargarlos:**
+
+- **Sin firmar → Pro Tools Developer.** Crea una cuenta gratuita en el programa de desarrolladores de Avid (developer.avid.com) y descarga *Pro Tools Developer*. Carga plugins sin firmar. Sirve para probar y para trabajar.
+- **Firmados → cualquier Pro Tools.** Hay que firmarlos con la herramienta `wraptool` de PACE:
+  1. Solicita acceso a las herramientas de firma de PACE (*PACE Eden / Fusion*) escribiendo a PACE como desarrollador de AAX. Avid lo gestiona desde su programa de desarrolladores.
+  2. Necesitas una cuenta de iLok y un certificado de firma. En Mac, además, un certificado de *Developer ID* de Apple (programa de desarrolladores de Apple, de pago).
+  3. Firma cada plugin:
+
+     ```bash
+     wraptool sign --verbose --account TU_CUENTA_PACE --wcguid TU_WCGUID --signid "Developer ID Application: TU NOMBRE" --in MasterChain.aaxplugin --out MasterChain.aaxplugin
+     ```
+
+**3.** Abre Pro Tools: los plugins aparecen en el menú de inserciones, en la categoría correspondiente (Dynamics, EQ, Pitch Shift, Harmonic, Sound Field).
+
 ### Otros DAW con VST3
 
 Cubase, Ableton Live, Studio One, FL Studio y Bitwig buscan automáticamente en la carpeta VST3 estándar. Si no aparecen, busca la opción "volver a escanear plugins" en sus preferencias.
@@ -155,6 +191,7 @@ Cubase, Ableton Live, Studio One, FL Studio y Bitwig buscan automáticamente en 
 | Reaper no lo encuentra | Comprueba la ruta en Preferences → Plug-ins y pulsa Re-scan (en Windows, que la carpeta `.vst3` se copió entera) |
 | La pista suena desplazada en el tiempo | Activa la compensación de latencia del DAW (activada por defecto en Logic y Reaper). Todos los plugins reportan su latencia exacta |
 | CPU alta con PrismaEQ / MasterChain | La fase lineal y el HQ del EQ son lo más costoso: úsalos al mezclar o masterizar, no mientras grabas |
+| Pro Tools no muestra los plugins AAX | Pro Tools normal solo carga plugins firmados por PACE: usa Pro Tools Developer o fírmalos (ver la sección de Pro Tools) |
 | Afina tiene demasiada latencia para monitorizar en directo | Pon **Rango de voz** en *Soprano* (~24 ms) |
 
 ## Desinstalar

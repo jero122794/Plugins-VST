@@ -1,8 +1,21 @@
-# Crea un plugin (AU/VST3/CLAP/Standalone) con la configuración común del proyecto.
+# Crea un plugin (AU/VST3/AAX/CLAP/Standalone) con la configuración común del proyecto.
 #   add_studio_plugin(TARGET name PRODUCT "Nombre" CODE Abcd CLAP_FEATURES ... SOURCES ... LIBS ... DEFINITIONS ...)
 function(add_studio_plugin)
     cmake_parse_arguments(P "" "TARGET;PRODUCT;CODE;VST3_CATEGORY" "CLAP_FEATURES;SOURCES;LIBS;DEFINITIONS" ${ARGN})
     string(TOLOWER "${P_TARGET}" lower)
+    # Categoría de Pro Tools a partir de la de VST3
+    set(aax_category None)
+    if(P_VST3_CATEGORY MATCHES "Dynamics|Mastering")
+        set(aax_category Dynamics)
+    elseif(P_VST3_CATEGORY MATCHES "EQ")
+        set(aax_category EQ)
+    elseif(P_VST3_CATEGORY MATCHES "Pitch")
+        set(aax_category PitchShift)
+    elseif(P_VST3_CATEGORY MATCHES "Distortion")
+        set(aax_category Harmonic)
+    elseif(P_VST3_CATEGORY MATCHES "Spatial")
+        set(aax_category SoundField)
+    endif()
     juce_add_plugin(${P_TARGET}
         PRODUCT_NAME            "${P_PRODUCT}"
         COMPANY_NAME            "Plugins-VST"
@@ -16,6 +29,7 @@ function(add_studio_plugin)
         IS_MIDI_EFFECT          FALSE
         AU_MAIN_TYPE            kAudioUnitType_Effect
         VST3_CATEGORIES         Fx ${P_VST3_CATEGORY}
+        AAX_CATEGORY            ${aax_category}
         COPY_PLUGIN_AFTER_BUILD ${APPLE})
     target_sources(${P_TARGET} PRIVATE ${P_SOURCES})
     target_compile_definitions(${P_TARGET} PUBLIC

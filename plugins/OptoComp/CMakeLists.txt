@@ -12,6 +12,7 @@ juce_add_plugin(OptoComp
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     AU_MAIN_TYPE            kAudioUnitType_Effect
     VST3_CATEGORIES         Fx Dynamics
+    AAX_CATEGORY            Dynamics
     COPY_PLUGIN_AFTER_BUILD ${APPLE})   # en macOS se instala en ~/Library/Audio/Plug-Ins
 
 target_sources(OptoComp PRIVATE
